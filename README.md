@@ -1,6 +1,6 @@
 <img src="https://media.tenor.com/6JptszQgCnkAAAAC/naruto-uzumaki.gif" alt="banner">
 
-<h1 align="center">🍥 CASSIDY BOT - NARUTO EDITION 🍥</h1>
+<h1 align="center">🍥 CASSIDY BOT -  🍥</h1>
 
 <p align="center">
 ⚡ Puissance • Style • Performance ⚡  
@@ -12,7 +12,7 @@
 ## ✨ Présentation
 
 Cassidy Bot est un bot Messenger puissant 🤖  
-inspiré de l’univers **Naruto 🍥** avec :
+inspiré de l’univers de SonicNarut 🍥** avec :
 
 - 🎌 Design anime stylé  
 - 🧠 Intelligence artificielle  
