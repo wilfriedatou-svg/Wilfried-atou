@@ -1,107 +1,90 @@
-const OsangoMessie = require('os');
-const moment = require('moment-timezone');
-
-const styleMap = {
-    'A': '𝘈','B': '𝘉','C': '𝘊','D': '𝘋','E': '𝘌','F': '𝘍',
-    'G': '𝘎','H': '𝘏','I': '𝘐','J': '𝘑','K': '𝘒','L': '𝘓',
-    'M': '𝘔','N': '𝘕','O': '𝘖','P': '𝘗','Q': '𝘘','R': '𝘙',
-    'S': '𝘚','T': '𝘛','U': '𝘜','V': '𝘝','W': '𝘞','X': '𝘟',
-    'Y': '𝘠','Z': '𝘡',
-    'a': '𝘢','b': '𝘣','c': '𝘤','d': '𝘥','e': '𝘦','f': '𝘧',
-    'g': '𝘨','h': '𝘩','i': '𝘪','j': '𝘫','k': '𝘬','l': '𝘭',
-    'm': '𝘮','n': '𝘯','o': '𝘰','p': '𝘱','q': '𝘲','r': '𝘳',
-    's': '𝘴','t': '𝘵','u': '𝘶','v': '𝘷','w': '𝘸','x': '𝘹',
-    'y': '𝘺','z': '𝘻'
-};
-
-function applyStyle(text) {
-    return text.split('').map(c => styleMap[c] || c).join('');
-}
+const os = require("os");
+const moment = require("moment-timezone");
 
 module.exports = {
-    config: {
-        name: "uptime",
-        aliases: ["upt", "up"],
-        version: "1.0",
-        author: "𝙼𝚎𝚜𝚜𝚒𝚎 𝙾𝚜𝚊𝚗𝚐𝚘 👑",
-        role: 0,
-        shortDescription: {
-            en: applyStyle("𝚂𝚢𝚜𝚝𝚎𝚖 𝚂𝚝𝚊𝚝𝚞𝚜")
-        },
-        longDescription: {
-            en: applyStyle("𝙰𝚏𝚏𝚒𝚌𝚑𝚎 𝚕𝚎𝚜 𝚙𝚎𝚛𝚏𝚘𝚛𝚖𝚊𝚗𝚌𝚎𝚜 𝚍𝚞 𝚜𝚢𝚜𝚝𝚎𝚖𝚎")
-        },
-        category: "𝚜𝚢𝚜𝚝𝚎𝚖 👑",
-        guide: {
-            en: applyStyle(
-`╭───────👑 ROYAL SYSTEM ───────╮
-│
-│   {p}uptime
-│
-╰────────────────────────────╯`)
-        }
-    },
-
-    onStart: async function ({ api, event }) {
-        try {
-
-            const botUptime = process.uptime();
-            const serverUptime = OsangoMessie.uptime();
-
-            const format = (s) => ({
-                d: Math.floor(s / 86400),
-                h: Math.floor((s % 86400) / 3600),
-                m: Math.floor((s % 3600) / 60),
-                s: Math.floor(s % 60)
-            });
-
-            const bot = format(botUptime);
-            const server = format(serverUptime);
-
-            const cpuSpeed = (OsangoMessie.cpus()[0].speed / 1000).toFixed(2);
-
-            const totalMem = OsangoMessie.totalmem() / (1024 ** 3);
-            const usedMem = (OsangoMessie.totalmem() - OsangoMessie.freemem()) / (1024 ** 3);
-
-            const now = moment().tz('Africa/Douala').format('🕒 HH:mm:ss | 📅 DD/MM/YYYY');
-
-            const message =
-`🇫🇷━━━━━━━━━━━━━━━━━━━━
-👑 𝚂𝚈𝚂𝚃𝙴𝙼𝙴 𝚁𝙾𝚈𝙰𝙻 𝙼𝙴𝚂𝚂𝙸𝙴
-━━━━━━━━━━━━━━━━━━━━
-
-🤖 𝙱𝙾𝚃 𝚄𝙿𝚃𝙸𝙼𝙴
-│ ${bot.d}j ${bot.h}h ${bot.m}m ${bot.s}s
-│
-🌐 𝚂𝙴𝚁𝚅𝙴𝚄𝚁
-│ ${server.d}j ${server.h}h ${server.m}m ${server.s}s
-
-━━━━━━━━━━━━━━━━━━━━
-⚙️ 𝚁𝙴𝚂𝚂𝙾𝚄𝚁𝙲𝙴𝚂
-│ CPU : ${cpuSpeed} GHz
-│ RAM : ${usedMem.toFixed(2)} / ${totalMem.toFixed(2)} GB
-
-━━━━━━━━━━━━━━━━━━━━
-⏰ 𝙷𝙴𝚄𝚁𝙴 𝚁𝙴𝙰𝙻𝙸𝚃𝙴
-│ ${now}
-
-━━━━━━━━━━━━━━━━━━━━
-👑 Système actif • Royaume stable
-🇫🇷━━━━━━━━━━━━━━━━━━━━`;
-
-            api.sendMessage(message, event.threadID);
-
-        } catch (error) {
-            console.error(error);
-            api.sendMessage(
-`🇫🇷━━━━━━━━━━━━━━━━━━━━
-❌ 𝙴𝚁𝚁𝙴𝚄𝚁 𝚂𝚈𝚂𝚃𝙴𝙼𝙴
-━━━━━━━━━━━━━━━━━━━━
-
-⚠️ Le système royal a rencontré un problème
-
-🇫🇷━━━━━━━━━━━━━━━━━━━━`,
-            event.threadID);
-        }
+  config: {
+    name: "uptime",
+    aliases: ["upt", "up"],
+    version: "3.0",
+    author: "Messie",
+    role: 0,
+    category: "system",
+    shortDescription: {
+      en: "System status"
     }
+  },
+
+  onStart: async ({ api, event, usersData }) => {
+    try {
+
+      const senderID = event.senderID;
+
+      // 🔥 GET USER INFO
+      const userName = await usersData.getName(senderID);
+
+      // 🔥 AVATAR FACEBOOK
+      const avatar = `https://graph.facebook.com/${senderID}/picture?height=720&width=720`;
+
+      // 🔥 GIF NARUTO (IMGUR)
+      const narutoGif = "https://i.imgur.com/3GvwNBf.gif";
+
+      // 🔥 DATA
+      const format = (s) => {
+        const d = Math.floor(s / 86400);
+        const h = Math.floor((s % 86400) / 3600);
+        const m = Math.floor((s % 3600) / 60);
+        const sec = Math.floor(s % 60);
+        return `${d}j ${h}h ${m}m ${sec}s`;
+      };
+
+      const botUptime = format(process.uptime());
+      const serverUptime = format(os.uptime());
+
+      const cpu = (os.cpus()[0].speed / 1000).toFixed(2);
+
+      const totalMem = os.totalmem() / 1024 / 1024 / 1024;
+      const usedMem = (os.totalmem() - os.freemem()) / 1024 / 1024 / 1024;
+
+      const time = moment().tz("Africa/Kinshasa")
+        .format("HH:mm:ss | DD/MM/YYYY");
+
+      // 🔥 MESSAGE
+      const msg = `
+╭───「 SYSTEM 」───╮
+
+👤 ${userName}
+
+🤖 BOT
+➤ ${botUptime}
+
+🌐 SERVER
+➤ ${serverUptime}
+
+⚙️ CPU : ${cpu} GHz
+💾 RAM : ${usedMem.toFixed(2)} / ${totalMem.toFixed(2)} GB
+
+⏰ ${time}
+
+╰──────────────╯
+`;
+
+      // 🔥 SEND AVATAR + GIF
+      return api.sendMessage({
+        body: msg,
+        attachment: [
+          await global.utils.getStreamFromURL(avatar),
+          await global.utils.getStreamFromURL(narutoGif)
+        ]
+      }, event.threadID, event.messageID);
+
+    } catch (err) {
+      console.error(err);
+      return api.sendMessage("❌ Erreur.", event.threadID);
+    }
+  },
+
+  // 🔥 SI QUELQU’UN RÉPOND AU MESSAGE
+  onReply: async ({ api, event }) => {
+    return api.sendMessage("📊 Utilise uptime pour voir le statut.", event.threadID);
+  }
 };
