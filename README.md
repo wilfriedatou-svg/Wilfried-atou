@@ -1,4 +1,10 @@
-<img src="https://media.tenor.com/6JptszQgCnkAAAAC/naruto-uzumaki.gif" alt="banner">
+<p align="center">
+  <span style="font-family: monospace; font-size: 18px; color: #00a2ff; border-right: 2px solid #00a2ff; display: inline-block; white-space: nowrap; animation: typing 3s steps(18) infinite, blink 0.5s step-end infinite alternate;">Create by Celestin</span>
+</p>
+
+<p align="center">
+  <img src="https://i.imgur.com/LR7tzH2.gif" alt="Cassidy Bot Banner" width="100%">
+</p>
 
 <h1 align="center">🍥 CASSIDY BOT -  🍥</h1>
 
@@ -37,7 +43,7 @@ inspiré de l’univers de SonicNarut 🍥** avec :
 ## ⚙️ Installation
 
 ```bash
-git clone https://github.com/flackodisk12-sudo/Cassidy-bot
+git clone [https://github.com/flackodisk12-sudo/Cassidy-bot](https://github.com/flackodisk12-sudo/Cassidy-bot)
 cd Cassidy-bot
 npm install
 npm start
