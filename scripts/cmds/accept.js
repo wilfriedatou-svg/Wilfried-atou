@@ -1,205 +1,132 @@
-const { createCanvas, loadImage } = require('canvas');
-const fs = require('fs-extra');
-const path = require('path');
+const moment = require("moment-timezone");
 
-// ==========================================
-// 🎨 ENGIN CANVAS POUR LA CONFIRMATION VISUELLE
-// ==========================================
-async function generateResultCanvas(actionType, usersProcessed) {
-    const listToDisplay = usersProcessed.slice(0, 5);
-    const canvasHeight = 150 + (listToDisplay.length * 90);
-    const canvas = createCanvas(700, canvasHeight);
-    const ctx = canvas.getContext('2d');
-
-    // Fond sombre Néo
-    ctx.fillStyle = '#0f172a';
-    ctx.fillRect(0, 0, 700, canvasHeight);
-    
-    // Bordure lumineuse selon l'action (Vert pour Accepté, Rouge pour Refusé)
-    ctx.strokeStyle = actionType === "Acceptée" ? '#10b981' : '#ef4444';
-    ctx.lineWidth = 8;
-    ctx.strokeRect(4, 4, 692, canvasHeight - 8);
-
-    // Titres
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 32px sans-serif';
-    ctx.fillText("CONFIRMATION D'ACTIONS", 50, 60);
-    
-    ctx.fillStyle = actionType === "Acceptée" ? '#10b981' : '#ef4444';
-    ctx.font = 'bold 26px sans-serif';
-    ctx.fillText(`Statut : Demande ${actionType}`, 50, 100);
-
-    // Ligne de séparation
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-    ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(50, 125); ctx.lineTo(650, 125); ctx.stroke();
-
-    // Rendu de la liste
-    for (let i = 0; i < listToDisplay.length; i++) {
-        const user = listToDisplay[i];
-        const yOffset = 150 + (i * 90);
-
-        try {
-            const avatarUrl = `https://graph.facebook.com/${user.node.id}/picture?width=200&height=200`;
-            const avatar = await loadImage(avatarUrl);
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(85, yOffset + 35, 35, 0, Math.PI * 2);
-            ctx.clip();
-            ctx.drawImage(avatar, 50, yOffset, 70, 70);
-            ctx.restore();
-            
-            ctx.strokeStyle = actionType === "Acceptée" ? '#10b981' : '#ef4444';
-            ctx.lineWidth = 3;
-            ctx.beginPath(); ctx.arc(85, yOffset + 35, 37, 0, Math.PI * 2); ctx.stroke();
-        } catch (e) {
-            ctx.fillStyle = '#334155';
-            ctx.beginPath(); ctx.arc(85, yOffset + 35, 35, 0, Math.PI * 2); ctx.fill();
-        }
-
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 22px sans-serif';
-        ctx.fillText(user.node.name, 150, yOffset + 30);
-        
-        ctx.fillStyle = '#94a3b8';
-        ctx.font = '16px sans-serif';
-        ctx.fillText(`ID: ${user.node.id}`, 150, yOffset + 55);
-    }
-
-    if (usersProcessed.length > 5) {
-        ctx.fillStyle = '#94a3b8';
-        ctx.font = 'italic 16px sans-serif';
-        ctx.fillText(`... et ${usersProcessed.length - 5} autres requêtes traitées.`, 150, canvasHeight - 25);
-    }
-
-    const cachePath = path.join(__dirname, 'cache', `accept_${Date.now()}.png`);
-    await fs.ensureDir(path.join(__dirname, 'cache'));
-    await fs.writeFile(cachePath, canvas.toBuffer('image/png'));
-    return cachePath;
-}
-
-// ==========================================
-// 🚀 MODULE MAIN
-// ==========================================
 module.exports = {
   config: {
     name: "accept",
-    aliases: ["acp"],
-    version: "2.6",
-    author: "Christus x Célestin (Canvas Fixed)",
-    countDown: 5,
+    aliases: ['acp'],
+    version: "1.0",
+    author: "Loid Butter",
+    countDown: 8,
     role: 2,
-    description: "Gère les demandes d'amis reçues avec un rendu visuel",
-    category: "utility",
-    guide: "{p}accept"
+    shortDescription: "accept users",
+    longDescription: "accept users",
+    category: "Utility",
   },
 
-  onReply: async function ({ message, Reply, event, api }) {
+  onReply: async function ({ message, Reply, event, api, commandName }) {
     const { author, listRequest, messageID } = Reply;
     if (author !== event.senderID) return;
+    const args = event.body.replace(/ +/g, " ").toLowerCase().split(" ");
 
-    const args = event.body.trim().toLowerCase().split(/\s+/);
-    const action = args[0];
+    clearTimeout(Reply.unsendTimeout); // Clear the timeout if the user responds within the countdown duration
 
-    if (action !== "add" && action !== "del") {
-      return message.reply("❌ Action invalide. Utilisez 'add' ou 'del'.");
-    }
-
-    let targetIndexes = args.slice(1);
-    if (args[1] === "all") {
-      targetIndexes = Array.from({ length: listRequest.length }, (_, i) => (i + 1).toString());
-    }
-
-    if (targetIndexes.length === 0) {
-      return message.reply("❌ Veuillez spécifier les numéros ou utiliser 'all'.");
-    }
-
-    const usersProcessed = [];
-    let actionType = action === "add" ? "Acceptée" : "Refusée";
-
-    message.reply(`⚙️ Traitement de ${targetIndexes.length} demande(s) en cours...`);
-
-    for (const indexStr of targetIndexes) {
-      const index = parseInt(indexStr) - 1;
-      const user = listRequest[index];
-
-      if (user) {
-        // Reconstruction propre de la payload pour chaque requête GraphQL
-        const payload = {
-          av: api.getCurrentUserID(),
-          fb_api_caller_class: "RelayModern",
-          fb_api_req_friendly_name: action === "add" ? "FriendingCometFriendRequestConfirmMutation" : "FriendingCometFriendRequestDeleteMutation",
-          doc_id: action === "add" ? "3147613905362928" : "4108254489275063",
-          variables: JSON.stringify({
-            input: {
-              source: "friends_tab",
-              actor_id: api.getCurrentUserID(),
-              client_mutation_id: Math.round(Math.random() * 100).toString(),
-              friend_requester_id: user.node.id
-            },
-            scale: 3,
-            refresh_num: 0
-          })
-        };
-
-        try {
-          await api.httpPost("https://www.facebook.com/api/graphql/", payload);
-          usersProcessed.push(user);
-        } catch (err) {
-          console.error(`Erreur ID ${user.node.id}:`, err.message);
-        }
-      }
-    }
-
-    if (usersProcessed.length > 0) {
-        const imagePath = await generateResultCanvas(actionType, usersProcessed);
-        await api.sendMessage({
-            body: `✧ ▬▭▬ ▬▭▬ ✦✧✦ ▬▭▬ ▬▭▬ ✧\n✅ Opération terminée avec succès.\n✧ ▬▭▬ ▬▭▬ ✦✧✦ ▬▭▬ ▬▭▬ ✧`,
-            attachment: fs.createReadStream(imagePath)
-        }, event.threadID);
-        await fs.unlink(imagePath);
-    } else {
-        message.reply("❌ Impossible de traiter les requêtes (Erreur de communication Facebook).");
-    }
-
-    try { api.unsendMessage(messageID); } catch(e) {}
-  },
-
-  onStart: async function ({ message, api, event, commandName }) {
     const form = {
       av: api.getCurrentUserID(),
       fb_api_caller_class: "RelayModern",
-      fb_api_req_friendly_name: "FriendingCometFriendRequestsListQuery",
-      doc_id: "4496580977054653",
-      variables: JSON.stringify({ count: 20, scale: 3 })
+      variables: {
+        input: {
+          source: "friends_tab",
+          actor_id: api.getCurrentUserID(),
+          client_mutation_id: Math.round(Math.random() * 19).toString()
+        },
+        scale: 3,
+        refresh_num: 0
+      }
     };
 
-    try {
-      const res = await api.httpPost("https://www.facebook.com/api/graphql/", form);
-      const data = JSON.parse(res.replace("for (;;);", ""));
-      const listRequest = data.data.viewer.friending_possibilities.edges || [];
+    const success = [];
+    const failed = [];
 
-      if (listRequest.length === 0) {
-        return message.reply("✧ ▬▭▬ ▬▭▬ ✦✧✦ ▬▭▬ ▬▭▬ ✧\n Aucune demande d'ami en attente.\n✧ ▬▭▬ ▬▭▬ ✦✧✦ ▬▭▬ ▬▭▬ ✧");
-      }
-
-      let msg = "✧ ▬▭▬ ▬▭▬ ✦✧✦ ▬▭▬ ▬▭▬ ✧\n👥 LISTE DES DEMANDES D'AMIS\n\n";
-      listRequest.forEach((user, index) => {
-        msg += `${index + 1}. 👤 ${user.node.name}\n🆔 ID: ${user.node.id}\n\n`;
-      });
-      msg += "👉 Répondez à ce message avec :\n• 'add [numéro / all]' pour accepter\n• 'del [numéro / all]' pour refuser.\n✧ ▬▭▬ ▬▭▬ ✦✧✦ ▬▭▬ ▬▭▬ ✧";
-
-      message.reply(msg, (err, info) => {
-        global.GoatBot.onReply.set(info.messageID, {
-          commandName,
-          messageID: info.messageID,
-          author: event.senderID,
-          listRequest
-        });
-      });
-
-    } catch (e) {
-      return message.reply(`❌ Erreur lors de la récupération : ${e.message}`);
+    if (args[0] === "add") {
+      form.fb_api_req_friendly_name = "FriendingCometFriendRequestConfirmMutation";
+      form.doc_id = "3147613905362928";
     }
+    else if (args[0] === "del") {
+      form.fb_api_req_friendly_name = "FriendingCometFriendRequestDeleteMutation";
+      form.doc_id = "4108254489275063";
+    }
+    else {
+      return api.sendMessage("Please select <add: del > <target number: or \"all\">", event.threadID, event.messageID);
+    }
+
+    let targetIDs = args.slice(1);
+
+    if (args[1] === "all") {
+      targetIDs = [];
+      const lengthList = listRequest.length;
+      for (let i = 1; i <= lengthList; i++) targetIDs.push(i);
+    }
+
+    const newTargetIDs = [];
+    const promiseFriends = [];
+
+    for (const stt of targetIDs) {
+      const u = listRequest[parseInt(stt) - 1];
+      if (!u) {
+        failed.push(`Can't find stt ${stt} in the list`);
+        continue;
+      }
+      form.variables.input.friend_requester_id = u.node.id;
+      form.variables = JSON.stringify(form.variables);
+      newTargetIDs.push(u);
+      promiseFriends.push(api.httpPost("https://www.facebook.com/api/graphql/", form));
+      form.variables = JSON.parse(form.variables);
+    }
+
+    const lengthTarget = newTargetIDs.length;
+    for (let i = 0; i < lengthTarget; i++) {
+      try {
+        const friendRequest = await promiseFriends[i];
+        if (JSON.parse(friendRequest).errors) {
+          failed.push(newTargetIDs[i].node.name);
+        }
+        else {
+          success.push(newTargetIDs[i].node.name);
+        }
+      }
+      catch (e) {
+        failed.push(newTargetIDs[i].node.name);
+      }
+    }
+
+    if (success.length > 0) {
+      api.sendMessage(`Â» The ${args[0] === 'add' ? 'friend request' : 'friend request deletion'} processed for ${success.length} people:\n\n${success.join("\n")}${failed.length > 0 ? `\nÂ» The following ${failed.length} people encountered errors: ${failed.join("\n")}` : ""}`, event.threadID, event.messageID);
+    } else {
+      api.unsendMessage(messageID); // Unsend the message if the response is incorrect
+      return api.sendMessage("Invalid response. Please provide a valid response.", event.threadID);
+    }
+
+    api.unsendMessage(messageID); // Unsend the message after it processed
+  },
+
+  onStart: async function ({ event, api, commandName }) {
+    const form = {
+      av: api.getCurrentUserID(),
+      fb_api_req_friendly_name: "FriendingCometFriendRequestsRootQueryRelayPreloader",
+      fb_api_caller_class: "RelayModern",
+      doc_id: "4499164963466303",
+      variables: JSON.stringify({ input: { scale: 3 } })
+    };
+    const listRequest = JSON.parse(await api.httpPost("https://www.facebook.com/api/graphql/", form)).data.viewer.friending_possibilities.edges;
+    let msg = "";
+    let i = 0;
+    for (const user of listRequest) {
+      i++;
+      msg += (`\n${i}. Name: ${user.node.name}`
+        + `\nID: ${user.node.id}`
+        + `\nUrl: ${user.node.url.replace("www.facebook", "fb")}`
+        + `\nTime: ${moment(user.time * 1009).tz("Asia/Manila").format("DD/MM/YYYY HH:mm:ss")}\n`);
+    }
+    api.sendMessage(`${msg}\nReply to this message with content: <add: del> <comparison: or "all"> to take action`, event.threadID, (e, info) => {
+      global.GoatBot.onReply.set(info.messageID, {
+        commandName,
+        messageID: info.messageID,
+        listRequest,
+        author: event.senderID,
+        unsendTimeout: setTimeout(() => {
+          api.unsendMessage(info.messageID); // Unsend the message after the countdown duration
+        }, this.config.countDown * 1000) // Convert countdown duration to milliseconds
+      });
+    }, event.messageID);
   }
 };
