@@ -1,9 +1,9 @@
 const characters = [
   {
-    name: "ʚʆɞ𝕔é𝕝𝕖𝕤𝕥𝕚𝕟 𝕥𝕙𝕖 𝕜𝕚𝕟𝕘ʚʆɞ ネ",
+    name: "ʚʆɞ𝕔é𝕝𝕖𝕤𝕥𝕚𝕟 𝕥𝕙𝗲 𝕜𝕚𝕟𝕘ʚʆɞ ネ",
     power: 89,
-    basic: "pouvoir de Mark Zuckerberg 🖥️",
-    ultimate: "attaque +coup  Géant 🌪️"
+    basic: "pouvoir de Mark Zuckerberg",
+    ultimate: " attaque +coup  Géant 🌪️"
   },
   {
     name: "Naruto (Mode Ermite)",
@@ -368,8 +368,8 @@ const gameState = {};
 module.exports = {
   config: { 
     name: "naruto-storm", 
-    version: "4.3",
-    author: "Delfa •|• ꗇ︱Blẳȼk 义",
+    version: "4.2",
+    author: "Delfa •|• ꗇ︱Blẳȼk 义 ",
     role: 0,
     category: "game",
     shortDescription: "Jeu Naruto ultime",
@@ -396,16 +396,24 @@ module.exports = {
       lastPlayer: null
     };
 
-    await message.reply({
-      body: `🎮 𝗡𝗔𝗥𝗨𝗧𝗢-𝗦𝗧𝗢𝗥𝗠 𝗩𝟰.𝟯\n━━━━━━━━━━━━━━\n𝗘𝗻𝘃𝗼𝘆𝗲𝘇 "start" 𝗽𝗼𝘂𝗿 𝗰𝗼𝗺𝗺𝗲𝗻𝗰𝗲𝗿`,
-      attachment: await global.utils.getStreamFromURL("https://i.ibb.co/1Gdycvds/image.jpg")
-    });
+    const welcomeMsg = `🎮 𝗡𝗔𝗥𝗨𝗧𝗢-𝗦𝗧𝗢𝗥𝗠 𝗩𝟰.𝟮\n━━━━━━━━━━━━━━\n𝗘𝗻𝘃𝗼𝘆𝗲𝘇 "start" 𝗽𝗼𝘂𝗿 𝗰𝗼𝗺𝗺𝗲𝗻𝗰𝗲𝗿`;
+
+    try {
+      const stream = await global.utils.getStreamFromURL("https://i.ibb.co/1Gdycvds/image.jpg");
+      await message.reply({
+        body: welcomeMsg,
+        attachment: stream
+      });
+    } catch (error) {
+      // Si l'image renvoie une erreur 404, on envoie le message sans pièce jointe
+      await message.reply({ body: welcomeMsg });
+    }
   },
 
   onChat: async function ({ event, message, usersData }) {
     const threadID = event.threadID;
     const userID = event.senderID;
-    const body = event.body.toLowerCase().trim();
+    const body = event.body.toLowerCase();
 
     if (!gameState[threadID]) return;
     const state = gameState[threadID];
@@ -447,7 +455,10 @@ module.exports = {
       const userInfo = await usersData.get(state.players.p1);
       return message.reply({
         body: characterList + `\n\n@${userInfo.name} 𝗝𝗼𝘂𝗲𝘂𝗿 𝟭, 𝗿𝗲́𝗽𝗼𝗻𝗱𝗲𝘇 𝗮𝘃𝗲𝗰 𝗹𝗲 𝗻𝘂𝗺𝗲́𝗿𝗼 𝗱𝘂 𝗽𝗲𝗿𝘀𝗼𝗻𝗻𝗮𝗴𝗲`,
-        mentions: [{ tag: `@${userInfo.name}`, id: state.players.p1 }]
+        mentions: [{
+          tag: `@${userInfo.name}`,
+          id: state.players.p1
+        }]
       });
     }
 
@@ -455,7 +466,7 @@ module.exports = {
       const index = parseInt(body) - 1;
       
       if (isNaN(index) || index < 0 || index >= characters.length) {
-        return message.reply("❌ <b>𝗡𝘂𝗺𝗲́𝗿𝗼 𝗶𝗻𝘃𝗮𝗹𝗶𝗱𝗲.</b> 𝗥𝗲́𝗲𝘀𝘀𝗮𝘆𝗲𝘇");
+        return message.reply("❌ 𝗡𝘂𝗺𝗲́𝗿𝗼 𝗶𝗻𝘃𝗮𝗹𝗶𝗱𝗲. 𝗥𝗲́𝗲𝘀𝘀𝗮𝘆𝗲𝘇");
       }
 
       if (state.step === "choose_characters_p1" && userID === state.players.p1) {
@@ -463,8 +474,11 @@ module.exports = {
         state.step = "choose_characters_p2";
         const userInfo = await usersData.get(state.players.p2);
         return message.reply({
-          body: `✅ 𝗝𝗼𝘂𝗲𝘂𝗿 𝟭: ${state.p1Character.name}\n\n@${userInfo.name} 𝗝𝗼𝘂𝗲𝘂𝗿 𝟮, 𝗰𝗵𝗼𝗶𝘀𝗶𝘀𝘀𝗲𝘇 𝘃𝗼𝘁𝗿𝗲 𝗽𝗲𝗿𝘀𝗼𝗻𝗻𝗮𝗴𝗲`,
-          mentions: [{ tag: `@${userInfo.name}`, id: state.players.p2 }]
+          body: `✅ 𝗝𝗼𝘂𝗲𝘂𝗿 𝟭: ${state.p1Character.name}\n\n@${userInfo.name} 𝗝𝗼𝘂eu𝗿 𝟮, 𝗰𝗵𝗼𝗶𝘀𝗶𝘀𝘀𝗲𝘇 𝘃𝗼𝘁𝗿𝗲 𝗽𝗲𝗿𝘀𝗼𝗻𝗻𝗮𝗴𝗲`,
+          mentions: [{
+            tag: `@${userInfo.name}`,
+            id: state.players.p2
+          }]
         });
       }
 
@@ -488,7 +502,10 @@ module.exports = {
         
         return message.reply({
           body: battleStartMsg,
-          mentions: [{ tag: `@${p1Info.name}`, id: state.players.p1 }]
+          mentions: [{
+            tag: `@${p1Info.name}`,
+            id: state.players.p1
+          }]
         });
       }
       return;
@@ -512,7 +529,6 @@ module.exports = {
       let effect = "👊";
       let chakraUsed = 0;
       let missed = false;
-      let reasonMissed = "";
       let chargeMessage = "";
 
       switch (body) {
@@ -525,8 +541,6 @@ module.exports = {
         case 'b':
           if (state[chakraKey] < damageSystem.special.chakraCost) {
             missed = true;
-            reasonMissed = "Chakra insuffisant";
-            tech = attacker.basic;
           } else {
             damage = randomBetween(damageSystem.special.min, damageSystem.special.max);
             chakraUsed = damageSystem.special.chakraCost;
@@ -538,13 +552,10 @@ module.exports = {
         case 'x':
           if (state[chakraKey] < damageSystem.ultimate.chakraCost) {
             missed = true;
-            reasonMissed = "Chakra insuffisant";
-            tech = attacker.ultimate;
           } else {
             chakraUsed = damageSystem.ultimate.chakraCost;
             if (Math.random() < damageSystem.ultimate.failChance) {
               missed = true;
-              reasonMissed = "Technique ratée";
               tech = attacker.ultimate + " (échoué)";
               effect = "❌";
             } else {
@@ -558,93 +569,90 @@ module.exports = {
         case 'c':
           state[chakraKey] = Math.min(100, state[chakraKey] + damageSystem.charge.chakraGain);
           chargeMessage = `🔋 ${attacker.name} accumule +${damageSystem.charge.chakraGain}% de chakra !`;
-          break;
+          state.lastAction = 'c';
+          state.lastPlayer = userID;
+          state.turn = state.turn === "p1" ? "p2" : "p1";
+          return await sendBattleMessage();
           
         case 'd':
           state.defending = state.turn;
-          break;
+          state.lastAction = 'd';
+          state.lastPlayer = userID;
+          state.turn = state.turn === "p1" ? "p2" : "p1";
+          return message.reply(`🛡️ ${attacker.name} se met en position défensive !`);
 
         default:
           return message.reply("❌ Commande invalide\n» a - Attaque\n» b - Technique\n» x - Ultime\n» c - Charger\n» d - Défense");
       }
 
-      // Application des dégâts et calcul des modifications d'état
-      if (body !== 'c' && body !== 'd') {
-        if (!missed) {
-          if (state.defending && state.defending !== state.turn) {
-            damage = Math.floor(damage * 0.6);
-            tech += " (défendu)";
-          }
-          state[chakraKey] -= chakraUsed;
-          state[hpKey] = Math.max(0, state[hpKey] - damage);
-        } else {
-          if (reasonMissed === "Chakra insuffisant") {
-            // Aucun chakra n'est retiré si la ressource est déjà insuffisante
-          } else {
-            state[chakraKey] -= chakraUsed;
-          }
+      if (!missed) {
+        if (state.defending && state.defending !== state.turn) {
+          damage = Math.floor(damage * 0.6);
+          tech += " (défendu)";
         }
+
+        state[chakraKey] -= chakraUsed;
+        state[chakraKey] = Math.max(0, state[chakraKey]);
+        state[hpKey] -= damage;
+        state[hpKey] = Math.max(0, state[hpKey]);
       }
 
-      // Stockage de l'historique avant le switch de tour
       state.lastAction = body;
       state.lastPlayer = userID;
 
-      // Régénération passive du chakra en fin de tour
       if (state.turn === "p1") {
         state.p1Chakra = Math.min(100, state.p1Chakra + state.chakraRegen);
       } else {
         state.p2Chakra = Math.min(100, state.p2Chakra + state.chakraRegen);
       }
 
-      // Changement de tour logique
-      const previousTurn = state.turn;
-      state.turn = previousTurn === "p1" ? "p2" : "p1";
+      async function sendBattleMessage() {
+        let msg = "";
 
-      // Construction de l'affichage du combat
-      let msg = "";
-      if (body === 'c') {
-        msg += `${chargeMessage}\n\n`;
-      } else if (body === 'd') {
-        msg += `🛡️ ${attacker.name} se met en position défensive !\n\n`;
-      } else if (!missed) {
-        msg += `⚡ ${attacker.name} utilise : ${tech} ${effect}\n`;
-        msg += `💥 Inflige ${damage}% de dégâts à ${defender.name} !\n\n`;
-      } else {
-        msg += `⚡ ${attacker.name} tente : ${tech}...\n`;
-        msg += `❌ Échoue ! (${reasonMissed})\n\n`;
-      }
-
-      msg += `━━━━━━━━━━━━━━\n`;
-      msg += `${getHealthColor(state.p1HP)} | ${state.p1Character.name}: HP ${state.p1HP}%\n`;
-      msg += `💙 | Chakra ${state.p1Chakra}%\n`;
-      msg += `━━━━━━━━━━━━━━\n`;
-      msg += `${getHealthColor(state.p2HP)} | ${state.p2Character.name}: HP ${state.p2HP}%\n`;
-      msg += `💙 | Chakra ${state.p2Chakra}%\n`;
-      msg += `━━━━━━━━━━━━━━\n`;
-
-      if (state.p1HP <= 0 || state.p2HP <= 0) {
-        const winner = state.p1HP <= 0 ? state.p2Character.name : state.p1Character.name;
-        msg += `🏆 𝗩𝗜𝗖𝗧𝗢𝗜𝗥𝗘 𝗗𝗘 ${winner} !\n`;
-        msg += `𝗙𝗶𝗻 𝗱𝘂 𝗰𝗼𝗺𝗯𝗮𝘁. 𝗧𝗮𝗽𝗲𝘇 'fin' 𝗽𝗼𝘂𝗿 𝗿𝗲𝗰𝗼𝗺𝗺𝗲𝗻𝗰𝗲𝗿.`;
-        delete gameState[threadID];
-        return message.reply(msg);
-      } else {
-        // Reset la défense si elle appartenait au joueur adverse qui va maintenant jouer
-        if (state.defending === state.turn) {
-          state.defending = false;
+        if (body !== 'c' && !missed) {
+          msg += `⚡ ${attacker.name} utilise ${tech} ${effect}\n`;
+          msg += `💥 Inflige ${damage}% de dégâts à ${defender.name} !\n\n`;
+        } else if (missed) {
+          msg += `⚡ ${attacker.name} tente ${tech}...\n`;
+          msg += `❌ Échoue ! (${state[chakraKey] < damageSystem.ultimate.chakraCost ? "Chakra insuffisant" : "Technique ratée"})\n\n`;
         }
-        
-        const nextPlayerID = state.turn === "p1" ? state.players.p1 : state.players.p2;
-        const userInfo = await usersData.get(nextPlayerID);
-        msg += `@${userInfo.name} 𝗝𝗼𝘂𝗲𝘂𝗿 ${state.turn === "p1" ? "1" : "2"}, 𝗰'𝗲𝘀𝘁 à 𝘁𝗼𝗶 𝗱𝗲 𝗷𝗼𝘂𝗲𝗿 !`;
+
+        msg += `━━━━━━━━━━━━━━\n`;
+        msg += `${getHealthColor(state.p1HP)}|${state.p1Character.name}: HP ${state.p1HP}%\n`;
+        msg += `💙| Chakra ${state.p1Chakra}%\n`;
+        msg += `━━━━━━━━━━━━━━\n`;
+        msg += `${getHealthColor(state.p2HP)}|${state.p2Character.name}: HP ${state.p2HP}%\n`;
+        msg += `💙| Chakra ${state.p2Chakra}%\n`;
+        msg += `━━━━━━━━━━━━━━\n`;
+
+        if (chargeMessage) msg += `${chargeMessage}\n`;
+
+        if (state.p1HP <= 0 || state.p2HP <= 0) {
+          const winner = state.p1HP <= 0 ? state.p2Character.name : state.p1Character.name;
+          msg += `🏆 𝗩𝗜𝗖𝗧𝗢𝗜𝗥𝗘 𝗗𝗘 ${winner} !\n`;
+          msg += `𝗙𝗶𝗻 𝗱𝘂 𝗰𝗼𝗺𝗯𝗮𝘁. 𝗧𝗮𝗽𝗲𝘇 'fin' 𝗽𝗼𝘂𝗿 𝗿𝗲𝗰𝗼𝗺𝗺𝗲𝗻𝗰𝗲𝗿.`;
+          delete gameState[threadID];
+        } else {
+          state.turn = state.turn === "p1" ? "p2" : "p1";
+          state.defending = false;
+          const nextPlayer = state.turn === "p1" ? state.players.p1 : state.players.p2;
+          const userInfo = await usersData.get(nextPlayer);
+          msg += `@${userInfo.name} 𝗝𝗼𝘂𝗲𝘂𝗿 ${state.turn === "p1" ? "1" : "2"}, 𝗰'𝗲𝘀𝘁 à 𝘁𝗼𝗶 𝗱𝗲 𝗷𝗼𝘂𝗲𝗿 !`;
+        }
+
+        const nextPlayer = state.turn === "p1" ? state.players.p1 : state.players.p2;
+        const userInfo = await usersData.get(nextPlayer);
         
         return message.reply({
           body: msg,
-          mentions: [{ tag: `@${userInfo.name}`, id: nextPlayerID }]
+          mentions: [{
+            tag: `@${userInfo.name}`,
+            id: nextPlayer
+          }]
         });
       }
+
+      return await sendBattleMessage();
     }
   }
 };
-        
