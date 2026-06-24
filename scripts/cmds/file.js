@@ -1,4 +1,5 @@
-const createCanvas = require('canvas').createCanvas;const loadImage = require('canvas').loadImage;
+const createCanvas = require('canvas').createCanvas;
+const loadImage = require('canvas').loadImage;
 const fs = require('fs-extra');
 const path = require('path');
 
@@ -8,7 +9,7 @@ function toSmallCaps(text) {
     k:'ᴋ', l:'ʟ', m:'ᴍ', n:'ɴ', o:'ᴏ', p:'ᴘ', q:'ǫ', r:'ʀ', s:'ѕ', t:'ᴛ',
     u:'ᴜ', v:'ᴠ', w:'ᴡ', x:'x', y:'ʏ', z:'ᴢ',
     A:'ᴀ', B:'ʙ', C:'ᴄ', D:'ᴅ', E:'ᴇ', F:'ꜰ', G:'ɢ', H:'ʜ', I:'ɪ', J:'ᴊ',
-    K:'ᴋ', L:'ʟ', M:'ᴍ', N:'ɴ', O:'ᴏ', P:'ᴘ', Q:'ǫ', R:'ʀ', S:'ѕ', T:'ᴛ',
+    K:'ᴋ', L:'ʟ', M:'ᴍ', N:'ɴ', O:'ᴏ', P:'ᴘ', q:'ǫ', R:'ʀ', S:'ѕ', T:'ᴛ',
     U:'ᴜ', V:'ᴠ', W:'ᴡ', X:'x', Y:'ʏ', Z:'ᴢ',
     'é':'ᴇ́', 'è':'ᴇ̀', 'ê':'ᴇ̂', 'ç':'ᴄ̧', 'à':'ᴀ̀', 'ô':'ᴏ̂'
   };
@@ -114,7 +115,7 @@ async function generateGroupCanvas(groups, page, totalPages, startIndex) {
 module.exports = {
   config: {
     name: "join",
-    version: "4.5",
+    version: "4.6",
     author: "Christus",
     countDown: 5,
     role: 2,
@@ -160,12 +161,19 @@ module.exports = {
         if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
         if (err) return console.error(err);
 
-        global.GoatBot.onReply.set(info.messageID, {
+        // Ajustement selon le gestionnaire global de GoatBot (onReply ou juste Reply)
+        const replyObj = {
           commandName: this.config.name,
           messageID: info.messageID,
           author: event.senderID,
           list: filteredList
-        });
+        };
+
+        if (global.GoatBot && global.GoatBot.onReply) {
+          global.GoatBot.onReply.set(info.messageID, replyObj);
+        } else if (global.client && global.client.handleReply) {
+          global.client.handleReply.push(replyObj);
+        }
       });
 
     } catch (e) {
@@ -174,8 +182,12 @@ module.exports = {
     }
   },
 
-  onReply: async function ({ api, event, Reply }) {
-    const { author, list } = Reply;
+  onReply: async function ({ api, event, reply }) {
+    // fallback si l'argument est nommé différemment dans votre version
+    const handleReply = reply || arguments[0].Reply || arguments[0].handleReply;
+    if (!handleReply) return;
+
+    const { author, list, messageID } = handleReply;
     if (event.senderID !== author) return;
 
     const groupIndex = parseInt(event.body, 10);
@@ -192,26 +204,30 @@ module.exports = {
         return api.sendMessage(`⚠️ Vous êtes déjà membre de 『${selected.threadName || "Ce groupe"}』`, event.threadID, event.messageID);
       }
 
-      // Methode principale d'ajout direct
+      // Méthode principale d'ajout direct
       await api.addUserToGroup(event.senderID, groupID);
       return api.sendMessage(`✅ Succès. Vous avez été injecté dans 『${selected.threadName || "Ce groupe"}』`, event.threadID, event.messageID);
 
     } catch (e) {
       console.error(e);
       
-      // Tentative B : Inversion des paramètres ou méthode alternative si l'instance FCA diffère
+      // Tentative alternative (Certaines versions de fca requièrent un tableau ou l'utilisation d'addUsersToGroup)
       try {
         const selected = list[groupIndex - 1];
         if (api.addUsersToGroup) {
           await api.addUsersToGroup([event.senderID], selected.threadID);
           return api.sendMessage(`✅ Succès via canal secondaire dans 『${selected.threadName || "Ce groupe"}』`, event.threadID, event.messageID);
+        } else {
+          await api.addUserToGroup(event.senderID, selected.threadID);
+          return api.sendMessage(`✅ Succès via canal secondaire dans 『${selected.threadName || "Ce groupe"}』`, event.threadID, event.messageID);
         }
-        throw new Error("Pas de méthode alternative");
       } catch (err) {
         return api.sendMessage("❌ L'API Facebook refuse l'ajout direct. Causes probables :\n1. Le bot n'est pas Admin du groupe.\n2. Vous n'avez pas le bot en ami sur Facebook (requis pour les ajouts directs).", event.threadID, event.messageID);
       }
     } finally {
-      global.GoatBot.onReply.delete(Reply.messageID);
+      if (global.GoatBot && global.GoatBot.onReply) {
+        global.GoatBot.onReply.delete(messageID);
+      }
     }
   },
 };
