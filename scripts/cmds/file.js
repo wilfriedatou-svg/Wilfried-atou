@@ -1,233 +1,211 @@
-const createCanvas = require('canvas').createCanvas;
-const loadImage = require('canvas').loadImage;
-const fs = require('fs-extra');
+const fs = require('fs');
 const path = require('path');
+const { createCanvas, loadImage } = require('canvas');
+const axios = require('axios');
 
-function toSmallCaps(text) {
-  const smallCapsMap = {
-    a:'ᴀ', b:'ʙ', c:'ᴄ', d:'ᴅ', e:'ᴇ', f:'ꜰ', g:'ɢ', h:'ʜ', i:'ɪ', j:'ᴊ',
-    k:'ᴋ', l:'ʟ', m:'ᴍ', n:'ɴ', o:'ᴏ', p:'ᴘ', q:'ǫ', r:'ʀ', s:'ѕ', t:'ᴛ',
-    u:'ᴜ', v:'ᴠ', w:'ᴡ', x:'x', y:'ʏ', z:'ᴢ',
-    A:'ᴀ', B:'ʙ', C:'ᴄ', D:'ᴅ', E:'ᴇ', F:'ꜰ', G:'ɢ', H:'ʜ', I:'ɪ', J:'ᴊ',
-    K:'ᴋ', L:'ʟ', M:'ᴍ', N:'ɴ', O:'ᴏ', P:'ᴘ', q:'ǫ', R:'ʀ', S:'ѕ', T:'ᴛ',
-    U:'ᴜ', V:'ᴠ', W:'ᴡ', X:'x', Y:'ʏ', Z:'ᴢ',
-    'é':'ᴇ́', 'è':'ᴇ̀', 'ê':'ᴇ̂', 'ç':'ᴄ̧', 'à':'ᴀ̀', 'ô':'ᴏ̂'
-  };
-  return text.split('').map(c => smallCapsMap[c] || c).join('');
+const ROYAL_COLORS = ['#0c0d21', '#181b3a', '#00f2fe', '#ff0055'];
+
+function getBalancedGradient(ctx, width, height) {
+  let gradient = ctx.createLinearGradient(0, 0, width, height);
+  gradient.addColorStop(0, '#020208');
+  gradient.addColorStop(0.5, '#0c0d21');
+  gradient.addColorStop(1, '#181b3a');
+  return gradient;
 }
 
-async function generateGroupCanvas(groups, page, totalPages, startIndex) {
+async function generateStatusCanvas(title, message, senderID, isSuccess = false) {
   const width = 850;
-  const height = 850;
+  const height = isSuccess ? 500 : 350;
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext('2d');
 
-  let gradient = ctx.createLinearGradient(0, 0, width, height);
-  gradient.addColorStop(0, '#090a15');
-  gradient.addColorStop(0.5, '#101124');
-  gradient.addColorStop(1, '#090a15');
-  ctx.fillStyle = gradient;
+  const themeColor = isSuccess ? '#00f2fe' : '#ff0055';
+
+  ctx.fillStyle = getBalancedGradient(ctx, width, height);
   ctx.fillRect(0, 0, width, height);
 
-  ctx.strokeStyle = '#00f2fe';
-  ctx.lineWidth = 3;
-  ctx.strokeRect(15, 15, width - 30, height - 30);
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.015)';
+  ctx.font = 'bold 110px "Sans-Serif"';
+  ctx.fillText("CELESTIN", 50, height - 50);
 
-  ctx.fillStyle = '#00f2fe';
+  ctx.strokeStyle = themeColor;
+  ctx.lineWidth = 5;
+  ctx.strokeRect(15, 15, width - 30, height - 30);
+  
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(22, 22, width - 44, height - 44);
+
+  const avatarX = 50;
+  const avatarY = 55;
+  const avatarSize = 95;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(avatarX + avatarSize / 2, avatarY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2, true);
+  ctx.clip();
+
+  try {
+    // Utilisation d'une URL de redirection FB Graph alternative plus permissive
+    const fbAvatarUrl = `https://graph.facebook.com/v15.0/${senderID}/picture?type=large&redirect=true`;
+    const response = await axios.get(fbAvatarUrl, {
+      responseType: 'arraybuffer',
+      timeout: 5000,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+      }
+    });
+    const avatarImg = await loadImage(Buffer.from(response.data));
+    ctx.drawImage(avatarImg, avatarX, avatarY, avatarSize, avatarSize);
+  } catch (e) {
+    try {
+      // Deuxième tentative avec le service d'avatars uniques par ID
+      const fallbackRes = await axios.get(`https://api.multiavatar.com/${senderID}.png`, {
+        responseType: 'arraybuffer'
+      });
+      const avatarImg = await loadImage(Buffer.from(fallbackRes.data));
+      ctx.drawImage(avatarImg, avatarX, avatarY, avatarSize, avatarSize);
+    } catch (err) {
+      ctx.fillStyle = '#0b0c16';
+      ctx.fillRect(avatarX, avatarY, avatarSize, avatarSize);
+      ctx.fillStyle = themeColor;
+      ctx.font = 'bold 30px "Sans-Serif"';
+      ctx.textAlign = 'center';
+      ctx.fillText("ROI", avatarX + avatarSize / 2, avatarY + avatarSize / 2 + 10);
+      ctx.textAlign = 'left';
+    }
+  }
+  ctx.restore();
+
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(avatarX + avatarSize / 2, avatarY + avatarSize / 2, (avatarSize / 2) + 3, 0, Math.PI * 2); ctx.stroke();
+
+  ctx.fillStyle = themeColor;
   ctx.font = 'bold 26px "Sans-Serif"';
-  ctx.fillText("⚡ GLOBAL GROUPS INDEX", 40, 60);
+  ctx.fillText(`⚜️ ${title} ⚜️`, avatarX + avatarSize + 30, 95);
+
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+  ctx.fillRect(avatarX + avatarSize + 30, 115, 350, 8);
+  ctx.fillStyle = themeColor;
+  ctx.fillRect(avatarX + avatarSize + 30, 115, isSuccess ? 350 : 110, 8);
+
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(40, 175); ctx.lineTo(width - 40, 175); ctx.stroke();
 
   ctx.fillStyle = '#ffffff';
-  ctx.font = '13px "Sans-Serif"';
-  ctx.fillText(`PAGE // 0${page} SUR 0${totalPages} | SYNC COMPLETED`, 40, 85);
+  ctx.font = isSuccess ? '13px "Courier New"' : '18px "Sans-Serif"';
+  
+  const lines = message.split('\n');
+  let y = 220;
+  const maxLines = isSuccess ? 10 : 4;
+  const displayLines = lines.slice(0, maxLines);
 
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
-  ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(30, 110); ctx.lineTo(width - 30, 110); ctx.stroke();
-
-  const startX1 = 50;
-  const startX2 = 450;
-  const startY = 140;
-  const rowHeight = 85;
-
-  for (let i = 0; i < groups.length; i++) {
-    const g = groups[i];
-    const isSecondCol = i >= 7; 
-    const colX = isSecondCol ? startX2 : startX1;
-    const colY = startY + ((i % 7) * rowHeight);
-
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
-    ctx.fillRect(colX, colY, 360, 70);
-    ctx.strokeStyle = 'rgba(0, 242, 254, 0.2)';
-    ctx.strokeRect(colX, colY, 360, 70);
-
-    ctx.fillStyle = '#00f2fe';
-    ctx.font = 'bold 14px "Sans-Serif"';
-    ctx.fillText(`${startIndex + i + 1}.`, colX + 15, colY + 40);
-
-    const avatarX = colX + 45;
-    const avatarY = colY + 15;
-    
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(avatarX + 20, avatarY + 20, 20, 0, Math.PI * 2, true);
-    ctx.clip();
-    
-    try {
-      const imgUrl = g.imageSrc || `https://graph.facebook.com/${g.threadID}/picture?width=100&height=100`;
-      const img = await loadImage(imgUrl);
-      ctx.drawImage(img, avatarX, avatarY, 40, 40);
-    } catch (e) {
-      ctx.fillStyle = '#101124';
-      ctx.fillRect(avatarX, avatarY, 40, 40);
-      ctx.fillStyle = '#00f2fe';
-      ctx.font = 'bold 10px "Sans-Serif"';
-      ctx.fillText("👥", avatarX + 12, avatarY + 24);
-    }
-    ctx.restore();
-
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.arc(avatarX + 20, avatarY + 20, 21, 0, Math.PI * 2); ctx.stroke();
-
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 12px "Sans-Serif"';
-    let gName = g.threadName || "Groupe sans nom";
-    if (gName.length > 24) gName = gName.substring(0, 22) + "..";
-    ctx.fillText(gName, colX + 100, colY + 30);
-
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-    ctx.font = '11px "Sans-Serif"';
-    ctx.fillText(`👥 ${g.participantIDs.length} Membres`, colX + 100, colY + 48);
+  for (const line of displayLines) {
+    ctx.fillText(line, 50, y);
+    y += isSuccess ? 22 : 32;
   }
 
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-  ctx.font = '11px "Sans-Serif"';
-  ctx.fillText("SYSTÈME PRÉMIUM DE SÉLECTION DE MODULES DE REJOINDRE", 40, height - 40);
+  if (isSuccess) {
+    ctx.fillStyle = themeColor;
+    ctx.font = 'bold 14px "Sans-Serif"';
+    ctx.fillText("👉 RÉPONDEZ (REPLY) À CETTE IMAGE POUR EXTRAIRE LE CODE SOURCE EN ENTIER", 50, height - 40);
+  }
 
   const tmpDir = path.join(process.cwd(), "cache");
-  await fs.ensureDir(tmpDir);
-  const imagePath = path.join(tmpDir, `join_canvas_${Date.now()}.png`);
+  if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
+  const imagePath = path.join(tmpDir, `archive_${Date.now()}.png`);
   fs.writeFileSync(imagePath, canvas.toBuffer('image/png'));
   return imagePath;
 }
 
 module.exports = {
   config: {
-    name: "join",
-    version: "4.6",
-    author: "Christus",
+    name: "file",
+    aliases: ["f"],
+    version: "7.8",
+    author: "Célestin",
     countDown: 5,
-    role: 2,
-    shortDescription: "Rejoindre un groupe (Format Canvas Carré)",
-    longDescription: "Liste graphique sous forme de grille carrée de tous les serveurs/groupes.",
+    role: 0,
+    shortDescription: "Send bot script",
+    longDescription: "Affiche le script sous forme de Canvas avec protocole de photo renforcé.",
     category: "owner",
-    guide: { en: "{p}{n} [page|next|prev]" },
+    guide: { en: "{p}{n} [nom_du_fichier]" }
   },
 
-  onStart: async function ({ api, event, args }) {
+  onStart: async function (context) {
+    const api = context.api || this.api;
+    const event = context.event || this.event;
+    const args = context.args || [];
+    if (!api || !event) return;
+
+    const senderID = event.senderID;
+    const permission = ["61561648169981"]; 
+
+    if (!permission.includes(senderID)) {
+      const imgPath = await generateStatusCanvas("ACCÈS REFUSÉ", "Tu n’es pas autorisé à utiliser cette commande.", senderID, false);
+      return api.sendMessage({ attachment: fs.createReadStream(imgPath) }, event.threadID, () => { if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath); }, event.messageID);
+    }
+
+    const fileName = args[0];
+    if (!fileName) {
+      const imgPath = await generateStatusCanvas("COMMANDE INCOMPLÈTE", "Indiquez le nom du fichier.\nExemple : -file join", senderID, false);
+      return api.sendMessage({ attachment: fs.createReadStream(imgPath) }, event.threadID, () => { if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath); }, event.messageID);
+    }
+
+    const filePath = path.join(__dirname, `${fileName}.js`);
+    if (!fs.existsSync(filePath)) {
+      const imgPath = await generateStatusCanvas("FICHIER INTROUVABLE", `Le fichier "${fileName}.js" n’existe pas.`, senderID, false);
+      return api.sendMessage({ attachment: fs.createReadStream(imgPath) }, event.threadID, () => { if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath); }, event.messageID);
+    }
+
     try {
-      const groupList = await api.getThreadList(200, null, ["INBOX"]);
-      const filteredList = groupList.filter(g => g.isGroup && g.isSubscribed);
+      const fileContent = fs.readFileSync(filePath, 'utf8');
+      const imgPath = await generateStatusCanvas(`ARCHIVE SECRÈTE : ${fileName}.js`, fileContent, senderID, true);
 
-      if (!filteredList.length) return api.sendMessage("❌ Aucun groupe trouvé.", event.threadID);
-
-      const pageSize = 14; 
-      const totalPages = Math.ceil(filteredList.length / pageSize);
-      if (!global.joinPage) global.joinPage = {};
-      const currentThread = event.threadID;
-
-      let page = 1;
-      if (args[0]) {
-        const input = args[0].toLowerCase();
-        if (input === "next") page = (global.joinPage[currentThread] || 1) + 1;
-        else if (input === "prev") page = (global.joinPage[currentThread] || 1) - 1;
-        else page = parseInt(input) || 1;
-      }
-
-      if (page < 1) page = 1;
-      if (page > totalPages) page = totalPages;
-      global.joinPage[currentThread] = page;
-
-      const startIndex = (page - 1) * pageSize;
-      const currentGroups = filteredList.slice(startIndex, startIndex + pageSize);
-
-      const imagePath = await generateGroupCanvas(currentGroups, page, totalPages, startIndex);
-
-      return api.sendMessage({
-        body: `✨ 📊 ${toSmallCaps("Indexation des serveurs")} [ Page ${page}/${totalPages} ]\n\n👉 ${toSmallCaps("Répondez directement à cette image avec le numéro associé pour forcer votre ajout par le bot.")}`,
-        attachment: fs.createReadStream(imagePath)
-      }, event.threadID, (err, info) => {
-        if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
+      return api.sendMessage({ attachment: fs.createReadStream(imgPath) }, event.threadID, (err, info) => {
+        if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
         if (err) return console.error(err);
 
-        // Ajustement selon le gestionnaire global de GoatBot (onReply ou juste Reply)
-        const replyObj = {
+        const replyData = {
           commandName: this.config.name,
           messageID: info.messageID,
-          author: event.senderID,
-          list: filteredList
+          author: senderID,
+          content: fileContent,
+          fileName: fileName
         };
 
         if (global.GoatBot && global.GoatBot.onReply) {
-          global.GoatBot.onReply.set(info.messageID, replyObj);
+          global.GoatBot.onReply.set(info.messageID, replyData);
         } else if (global.client && global.client.handleReply) {
-          global.client.handleReply.push(replyObj);
+          global.client.handleReply.push(replyData);
         }
-      });
+      }, event.messageID);
 
-    } catch (e) {
-      console.error(e);
-      api.sendMessage("⚠️ Erreur lors de la génération de l'interface Canvas.", event.threadID);
+    } catch (error) {
+      console.error(error);
+      api.sendMessage("⚠️ Erreur lors du traitement de l'archive.", event.threadID);
     }
   },
 
   onReply: async function ({ api, event, reply }) {
-    // fallback si l'argument est nommé différemment dans votre version
     const handleReply = reply || arguments[0].Reply || arguments[0].handleReply;
     if (!handleReply) return;
 
-    const { author, list, messageID } = handleReply;
+    const { author, content, fileName, messageID } = handleReply;
     if (event.senderID !== author) return;
 
-    const groupIndex = parseInt(event.body, 10);
-    if (isNaN(groupIndex) || groupIndex <= 0 || groupIndex > list.length) {
-      return api.sendMessage("⚠️ Numéro invalide ou introuvable.", event.threadID, event.messageID);
-    }
-
     try {
-      const selected = list[groupIndex - 1];
-      const groupID = selected.threadID;
-      const members = await api.getThreadInfo(groupID);
-
-      if (members.participantIDs.includes(event.senderID)) {
-        return api.sendMessage(`⚠️ Vous êtes déjà membre de 『${selected.threadName || "Ce groupe"}』`, event.threadID, event.messageID);
-      }
-
-      // Méthode principale d'ajout direct
-      await api.addUserToGroup(event.senderID, groupID);
-      return api.sendMessage(`✅ Succès. Vous avez été injecté dans 『${selected.threadName || "Ce groupe"}』`, event.threadID, event.messageID);
-
+      await api.sendMessage({
+        body: `࿇ ══━━✥👑✥━━══ ࿇\n     📦 CODE BRUT DÉVERROUILLÉ\n࿇ ══━━✥👑✥━━══ ࿇\n\n📜 Fichier : ${fileName}.js\n\n${content}`
+      }, event.threadID, event.messageID);
     } catch (e) {
       console.error(e);
-      
-      // Tentative alternative (Certaines versions de fca requièrent un tableau ou l'utilisation d'addUsersToGroup)
-      try {
-        const selected = list[groupIndex - 1];
-        if (api.addUsersToGroup) {
-          await api.addUsersToGroup([event.senderID], selected.threadID);
-          return api.sendMessage(`✅ Succès via canal secondaire dans 『${selected.threadName || "Ce groupe"}』`, event.threadID, event.messageID);
-        } else {
-          await api.addUserToGroup(event.senderID, selected.threadID);
-          return api.sendMessage(`✅ Succès via canal secondaire dans 『${selected.threadName || "Ce groupe"}』`, event.threadID, event.messageID);
-        }
-      } catch (err) {
-        return api.sendMessage("❌ L'API Facebook refuse l'ajout direct. Causes probables :\n1. Le bot n'est pas Admin du groupe.\n2. Vous n'avez pas le bot en ami sur Facebook (requis pour les ajouts directs).", event.threadID, event.messageID);
-      }
     } finally {
       if (global.GoatBot && global.GoatBot.onReply) {
         global.GoatBot.onReply.delete(messageID);
       }
     }
-  },
+  }
 };
