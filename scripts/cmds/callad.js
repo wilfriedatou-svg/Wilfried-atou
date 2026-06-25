@@ -1,298 +1,440 @@
 const { getStreamsFromAttachment, log } = global.utils;
-const { createCanvas, loadImage } = require("canvas");
-const { writeFileSync, createReadStream, unlinkSync } = require("fs-extra");
-const path = require("path");
+const { createCanvas, loadImage } = require('canvas');
+const fs = require('fs-extra');
+const path = require('path');
+const axios = require('axios');
 
-const mediaTypes = ["photo", 'png', "animated_image", "video", "audio"];
+const mediaTypes = ["photo", "png", "animated_image", "video", "audio"];
+const TARGET_GROUP_ID = "1286661779130987"; 
 
-async function generateCallAdminCard({ title, name, id, details, content, avatarUrl, cacheKey }) {
-	const width = 650;
-	const padding = 25;
+// Récupérer l'avatar de l'utilisateur
+async function getAvatarBuffer(uid, api) {
+	try {
+		const userInfo = await api.getUserInfo(uid);
+		const url = userInfo[uid]?.thumbSrc || `https://graph.facebook.com/${uid}/picture?type=large`;
+		const response = await axios.get(url, { responseType: 'arraybuffer' });
+		return Buffer.from(response.data, 'binary');
+	} catch (_) {
+		try {
+			const fallback = await axios.get('https://i.imgur.com/6V7669V.png', { responseType: 'arraybuffer' });
+			return Buffer.from(fallback.data, 'binary');
+		} catch(__) { return null; }
+	}
+}
+
+// Récupérer la photo du groupe
+async function getGroupImageBuffer(threadID, api) {
+	try {
+		const threadInfo = await api.getThreadInfo(threadID);
+		const url = threadInfo.imageSrc || `https://graph.facebook.com/${threadID}/picture?type=large`;
+		const response = await axios.get(url, { responseType: 'arraybuffer' });
+		return Buffer.from(response.data, 'binary');
+	} catch (_) {
+		return null; 
+	}
+}
+
+// Coins arrondis pour Canvas
+function roundRect(ctx, x, y, width, height, radius) {
+	if (typeof radius === 'number') {
+		radius = {tl: radius, tr: radius, br: radius, bl: radius};
+	}
+	ctx.beginPath();
+	ctx.moveTo(x + radius.tl, y);
+	ctx.lineTo(x + width - radius.tr, y);
+	ctx.quadraticCurveTo(x + width, y, x + width, y + radius.tr);
+	ctx.lineTo(x + width, y + height - radius.br);
+	ctx.quadraticCurveTo(x + width, y + height, x + width - radius.br, y + height);
+	ctx.lineTo(x + radius.bl, y + height);
+	ctx.quadraticCurveTo(x, y + height, x, y + height - radius.bl);
+	ctx.lineTo(x, y + radius.tl);
+	ctx.quadraticCurveTo(x, y, x + radius.tl, y);
+	ctx.closePath();
+}
+
+async function createCustomCanvas(title, subText, mainContent, avatarBuffer, groupBuffer, isAnonymous = false) {
+	const canvas = createCanvas(800, 450);
+	const ctx = canvas.getContext('2d');
+
+	const now = new Date();
+	const timeString = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+	const hour = now.getHours();
+
+	let bgColor = '#0a192f';
+	let primaryNeon = '#00c6ff';
+	let secondaryNeon = '#0072ff';
+	let bubbleBg = 'rgba(23, 42, 69, 0.7)';
+
+	if (hour >= 6 && hour < 12) {
+		bgColor = '#110c1a';
+		primaryNeon = '#b92b27';
+		secondaryNeon = '#1565c0';
+		bubbleBg = 'rgba(35, 21, 51, 0.7)';
+	} else if (hour >= 12 && hour < 18) {
+		bgColor = '#0f051d';
+		primaryNeon = '#ff007f';
+		secondaryNeon = '#00f0ff';
+		bubbleBg = 'rgba(37, 12, 62, 0.7)';
+	} else if (hour >= 18 && hour < 22) {
+		bgColor = '#1a0f00';
+		primaryNeon = '#f12711';
+		secondaryNeon = '#f5af19';
+		bubbleBg = 'rgba(51, 26, 0, 0.7)';
+	}
+
+	// Mode anonyme force une couleur sombre / mystérieuse
+	if (isAnonymous) {
+		bgColor = '#0d0d0d';
+		primaryNeon = '#555555';
+		secondaryNeon = '#222222';
+		bubbleBg = 'rgba(25, 25, 25, 0.8)';
+	}
+
+	// Background
+	ctx.fillStyle = bgColor;
+	ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+	// Bordures Néon
+	const gradient = ctx.createLinearGradient(0, 0, canvas.width, 0);
+	gradient.addColorStop(0, primaryNeon);
+	gradient.addColorStop(1, secondaryNeon);
+	ctx.strokeStyle = gradient;
+	ctx.lineWidth = 10;
+	ctx.strokeRect(20, 20, canvas.width - 40, canvas.height - 40);
+
+	// Haut de page
+	ctx.fillStyle = primaryNeon;
+	ctx.font = 'bold 18px Arial';
+	ctx.textAlign = 'center';
+	ctx.fillText('✦ ▬▭▬ ▬▭▬ ✧ ▬▭▬ ▬▭▬ ✦', canvas.width / 2, 45);
+
+	// Horodatage
+	ctx.fillStyle = '#ffffff';
+	ctx.font = 'bold 16px Arial';
+	ctx.textAlign = 'right';
+	ctx.fillText(`🕒 ${timeString}`, canvas.width - 45, 48);
+
+	// Dessin Avatar (ou Avatar Anonyme générique)
+	if (avatarBuffer && !isAnonymous) {
+		try {
+			const img = await loadImage(avatarBuffer);
+			ctx.save();
+			ctx.beginPath();
+			ctx.arc(110, 115, 45, 0, Math.PI * 2, true);
+			ctx.closePath();
+			ctx.clip();
+			ctx.drawImage(img, 65, 70, 90, 90);
+			ctx.restore();
+		} catch(_) {}
+	} else {
+		// Rond mystérieux si anonyme ou pas d'image
+		ctx.fillStyle = '#1f2937';
+		ctx.beginPath();
+		ctx.arc(110, 115, 45, 0, Math.PI * 2, true);
+		ctx.fill();
+		ctx.fillStyle = '#ffffff';
+		ctx.font = 'bold 30px Arial';
+		ctx.textAlign = 'center';
+		ctx.fillText('?', 110, 125);
+	}
+
+	// Contour Avatar
+	ctx.strokeStyle = primaryNeon;
+	ctx.lineWidth = 3;
+	ctx.beginPath();
+	ctx.arc(110, 115, 45, 0, Math.PI * 2, true);
+	ctx.stroke();
+
+	// Miniature Groupe (Masquée si anonyme)
+	if (groupBuffer && !isAnonymous) {
+		try {
+			const groupImg = await loadImage(groupBuffer);
+			ctx.save();
+			ctx.beginPath();
+			ctx.arc(145, 145, 22, 0, Math.PI * 2, true);
+			ctx.closePath();
+			ctx.clip();
+			ctx.drawImage(groupImg, 123, 123, 44, 44);
+			ctx.restore();
+
+			ctx.strokeStyle = secondaryNeon;
+			ctx.lineWidth = 2;
+			ctx.beginPath();
+			ctx.arc(145, 145, 22, 0, Math.PI * 2, true);
+			ctx.stroke();
+		} catch(_) {}
+	}
+
+	// En-têtes textuels
+	ctx.fillStyle = '#ffffff';
+	ctx.font = 'bold 28px Arial';
+	ctx.textAlign = 'left';
+	ctx.fillText(isAnonymous ? "📬 MESSAGE ANONYME" : title, 190, 105);
+
+	ctx.fillStyle = '#8892b0';
+	ctx.font = 'italic 18px Arial';
+	ctx.fillText(isAnonymous ? "Identité protégée" : subText, 190, 135);
+
+	// Bulle de dialogue
+	const bubbleX = 60;
+	const bubbleY = 180;
+	const bubbleWidth = 680;
+	const bubbleHeight = 190;
+
+	ctx.fillStyle = bubbleBg;
+	roundRect(ctx, bubbleX, bubbleY, bubbleWidth, bubbleHeight, 15);
+	ctx.fill();
+
+	ctx.strokeStyle = primaryNeon;
+	ctx.lineWidth = 2;
+	roundRect(ctx, bubbleX, bubbleY, bubbleWidth, bubbleHeight, 15);
+	ctx.stroke();
+
+	// Flèche de la bulle
+	ctx.beginPath();
+	ctx.moveTo(100, bubbleY);
+	ctx.lineTo(110, bubbleY - 12);
+	ctx.lineTo(120, bubbleY);
+	ctx.fillStyle = bubbleBg;
+	ctx.fill();
+	ctx.strokeStyle = primaryNeon;
+	ctx.lineWidth = 2;
+	ctx.beginPath();
+	ctx.moveTo(100, bubbleY);
+	ctx.lineTo(110, bubbleY - 12);
+	ctx.lineTo(120, bubbleY);
+	ctx.stroke();
+
+	// Corps du texte
+	ctx.fillStyle = '#e6f1ff';
+	ctx.font = '22px Arial';
+	ctx.textAlign = 'left';
 	
-	const canvasTemp = createCanvas(width, 200);
-	const ctxTemp = canvasTemp.getContext("2d");
-	ctxTemp.font = "16px sans-serif";
-	
-	const words = content.split(' ');
-	let lines = [];
-	let currentLine = "";
-	
-	for (let token of words) {
-		let testLine = currentLine + token + " ";
-		let metrics = ctxTemp.measureText(testLine);
-		if (metrics.width > (width - padding * 2 - 20) && currentLine !== "") {
-			lines.push(currentLine);
-			currentLine = token + " ";
+	const words = mainContent.split(' ');
+	let line = '';
+	let textX = bubbleX + 25;
+	let textY = bubbleY + 40;
+	const maxTextWidth = bubbleWidth - 50;
+	const lineHeight = 32;
+
+	for (let n = 0; n < words.length; n++) {
+		let testLine = line + words[n] + ' ';
+		let metrics = ctx.measureText(testLine);
+		if (metrics.width > maxTextWidth && n > 0) {
+			ctx.fillText(line, textX, textY);
+			line = words[n] + ' ';
+			textY += lineHeight;
 		} else {
-			currentLine = testLine;
+			line = testLine;
 		}
 	}
-	lines.push(currentLine);
+	ctx.fillText(line, textX, textY);
 
-	const textHeight = lines.length * 24;
-	const height = padding * 2 + 100 + textHeight + (details ? 40 : 0);
+	// Compteur statistique en bas à droite de la bulle
+	ctx.fillStyle = '#8892b0';
+	ctx.font = '12px Arial';
+	ctx.textAlign = 'right';
+	ctx.fillText(`Caractères: ${mainContent.length} | Mots: ${words.length}`, bubbleX + bubbleWidth - 20, bubbleY + bubbleHeight - 15);
 
-	const canvas = createCanvas(width, height);
-	const ctx = canvas.getContext("2d");
+	// OS Info à gauche du footer
+	ctx.textAlign = 'left';
+	ctx.fillText(`[OS: Secure_Line v4.8]`, 40, canvas.height - 32);
 
-	ctx.fillStyle = "#0d1117";
-	ctx.fillRect(0, 0, width, height);
+	// Pied de page global
+	ctx.fillStyle = primaryNeon;
+	ctx.font = '14px Arial';
+	ctx.textAlign = 'center';
+	ctx.fillText('🇨🇩 𝘚𝘺𝘴𝘵𝘦̀𝘮𝘦 𝘥𝘦 𝘚𝘶𝘱𝘱𝘰𝘳𝘵 🛀', canvas.width / 2, canvas.height - 32);
 
-	ctx.strokeStyle = "#00a2ff";
-	ctx.lineWidth = 3;
-	ctx.strokeRect(1.5, 1.5, width - 3, height - 3);
-
-	ctx.fillStyle = "#161b22";
-	ctx.beginPath();
-	ctx.roundRect(padding, padding, width - padding * 2, 70, 8);
-	ctx.fill();
-
-	try {
-		const avatar = await loadImage(avatarUrl);
-		ctx.save();
-		ctx.beginPath();
-		ctx.arc(padding + 35, padding + 35, 25, 0, Math.PI * 2, true);
-		ctx.closePath();
-		ctx.clip();
-		ctx.drawImage(avatar, padding + 10, padding + 10, 50, 50);
-		ctx.restore();
-	} catch (e) {
-		ctx.fillStyle = "#00a2ff";
-		ctx.beginPath();
-		ctx.arc(padding + 35, padding + 35, 25, 0, Math.PI * 2, true);
-		ctx.fill();
+	const cacheDir = path.join(__dirname, 'cache');
+	if (!fs.existsSync(cacheDir)) {
+		fs.mkdirSync(cacheDir, { recursive: true });
 	}
 
-	ctx.fillStyle = "#ff4757";
-	ctx.font = "bold 14px monospace";
-	ctx.fillText(title.toUpperCase(), padding + 75, padding + 25);
-
-	ctx.fillStyle = "#ffffff";
-	ctx.font = "bold 18px sans-serif";
-	ctx.fillText(name, padding + 75, padding + 48);
-
-	ctx.fillStyle = "#8b949e";
-	ctx.font = "12px monospace";
-	ctx.fillText(`ID: ${id}`, padding + 75, padding + 62);
-
-	let currentY = padding + 95;
-	ctx.fillStyle = "#1f242c";
-	ctx.beginPath();
-	ctx.roundRect(padding, currentY, width - padding * 2, textHeight + 20, 6);
-	ctx.fill();
-
-	ctx.fillStyle = "#e6edf3";
-	ctx.font = "16px sans-serif";
-	let textY = currentY + 22;
-	for (let line of lines) {
-		ctx.fillText(line.trim(), padding + 15, textY);
-		textY += 24;
-	}
-
-	if (details) {
-		ctx.fillStyle = "#58a6ff";
-		ctx.font = "italic 13px sans-serif";
-		ctx.fillText(details, padding, height - padding);
-	}
-
-	const cachePath = path.join(__dirname, "cache", `callad-${cacheKey}-${Date.now()}.png`);
-	writeFileSync(cachePath, canvas.toBuffer("image/png"));
+	const cachePath = path.join(cacheDir, `canvas_${Date.now()}.png`);
+	const buffer = canvas.toBuffer('image/png');
+	fs.writeFileSync(cachePath, buffer);
+	
 	return cachePath;
 }
 
 module.exports = {
 	config: {
 		name: "callad",
-		version: "2.1",
-		author: "NTKhang x Canvas",
+		version: "5.0",
+		author: "NTKhang x AI",
 		countDown: 5,
 		role: 0,
 		description: {
-			vi: "gửi báo cáo, góp ý, báo lỗi bằng hình ảnh Canvas về admin",
-			en: "send UI canvas report, feedback, bug to admin bot"
+			fr: "Envoyer un rapport complet avec mode anonyme optionnel via /anon."
 		},
 		category: "contacts admin",
 		guide: {
-			vi: "   {pn} <tin nhắn>",
-			en: "   {pn} <message>"
+			fr: "   {pn} <votre message> (ou utilisez {pn} /anon <message> pour rester masqué)"
 		}
 	},
 
 	langs: {
-		vi: {
-			missingMessage: "Vui lòng nhập tin nhắn bạn muốn gửi về admin",
-			success: "Đã gửi tin nhắn của bạn về %1 admin thành công!",
-			failed: "Đã có lỗi xảy ra khi gửi tin nhắn.",
-			replyUserSuccess: "Đã gửi phản hồi của bạn về người dùng thành công!",
-			replySuccess: "Đã gửi phản hồi của bạn về admin thành công!",
-			noAdmin: "Hiện tại bot chưa có admin nào"
-		},
-		en: {
-			missingMessage: "Please enter the message you want to send to admin",
-			success: "Sent your message to %1 admin successfully!",
-			failed: "An error occurred while sending your message.",
-			replyUserSuccess: "Sent your reply to user successfully!",
-			replySuccess: "Sent your reply to admin successfully!",
-			noAdmin: "Bot has no admin at the moment"
+		fr: {
+			missingMessage: "💙 𝘝𝘦𝘶𝘪𝘭𝘭𝘦𝘻 𝘦𝘯𝘵𝘳𝘦𝘳 𝘭𝘦 𝘮𝘦𝘴𝘴𝘢𝘨𝘦 𝘲𝘶𝘦 𝘷𝘰𝘶𝘴 𝘴𝘰𝘶𝘩𝘢𝘪𝘵𝘦𝘻 𝘦𝘯𝘷𝘰𝘺𝘦𝘳.",
+			sendByGroup: "\n🔹 𝘌𝘯𝘷𝘰𝘺𝘦́ 𝘥𝘦𝘱𝘶ਿ𝘴 𝘭𝘦 𝘨𝘳𝘰𝘶𝘱𝒆 : %1\n🔹 𝘐𝘋 : %2",
+			sendByUser: "\n🔹 𝘌𝘯𝘷𝘰ย𝘦́ 𝘱𝘢𝘳 𝘮𝘦𝘴𝘴𝘢𝘨𝘦 𝘱𝘳𝘪𝘷𝘦́",
+			content: "\n\n╔═════ 📬 𝘊𝘖𝘕𝘛𝘌𝘕𝘜 ═════╗\n%1\n╚═════════════════════╝\n\n💬 𝘙𝘦́𝘱𝘰𝘯𝘥𝘦𝘻 𝘢̀ 𝘤𝘦 𝘮𝘦𝘴𝘴าะ𝘨𝘦 𝘱𝘰𝘶𝘳 𝘦𝘯𝘷𝘰𝘺𝘦𝘳 𝘶𝘯𝘦 𝘳𝘦́𝘱𝘰𝘯𝘴𝒆.",
+			success: "💙 𝘝𝘰𝘵𝘳𝘦 𝘮𝘦𝘴𝘴𝘢𝘨𝘦 𝘢 𝘦́𝘵𝘦́ 𝘵𝘳𝘢𝘯𝘴𝘮𝘪𝖘 𝘢𝘷𝘦𝘤 <b>𝘴𝘶𝘤𝘤𝘦̀𝖘</b> !",
+			failed: "❌ 𝘐𝘮𝘱𝘰𝓼𝓼𝘪𝘣𝘭e 𝘥'𝘦𝘯𝘷𝘰𝘺𝘦𝘳 𝘭𝘦 𝘮𝘦𝘴𝘴𝘢𝘨𝘦.",
+			reply: "✧ ▬▭▬ ▬▭▬ ✦✧✦ ▬▭▬ ▬▭▬ ✧\n💙 𝘙𝘌́𝘗𝘖𝘕𝘚𝘌 𝘋𝘌 𝘓'𝘈𝘋𝘔𝘐𝘕𝘐𝘚𝘛𝘙𝘈𝘛𝘌𝘜𝘙 %1 :\n✧ ▬▭▬ ▬▭▬ ✦✧✦ ▬▭▬ ▬▭▬ ✧\n\n%2\n\n🛀 𝘙𝘦́𝘱𝘰𝘯𝘥𝘦𝘻 𝘱𝘰𝘶𝘳 𝘤𝘰𝘯𝘵𝘪𝘯𝘶𝘦𝘳 𝘭𝘢 𝘥𝘪𝘴𝘤𝘶𝓼𝘴𝘪ону.",
+			replySuccess: "💙 𝘝𝘰𝘵𝘳𝘦 𝘳𝘦́𝘱𝘰𝘯𝘴𝒆 𝘢 𝘦́𝘵𝘦́ 𝘵𝘳𝘢𝘯𝘴𝘮𝘪𝖘𝘦 !",
+			feedback: "✧ ▬▭▬ ▬▭▬ ✦✧✦ ▬▭▬ ▬▭▬ ✧\n🛀 𝘙𝘌𝘛𝘖𝘜𝘙 𝘋𝘌 𝘓'𝘜𝘛𝘐𝘓𝘐𝘚𝘈𝘛𝘌𝘜𝘙 %1 :\n🔹 𝘐𝘋 : %2%3\n✧ ▬▭▬ ▬▭▬ ✦✧✦ ▬▭▬ ▬▭▬ ✧\n\n📬 𝘊𝘰𝘯𝘵𝘦𝘯𝘶 :\n%4",
+			replyUserSuccess: "💙 𝘝𝘰𝘵𝘳𝘦 𝘳𝘦́𝘱ону𝘦 𝘢 𝘦́𝘵𝘦́ 𝘵𝘳𝘢𝘯𝘴𝘮𝘪𝖘𝘦 !"
 		}
 	},
 
 	onStart: async function ({ args, message, event, usersData, threadsData, api, commandName, getLang }) {
-		const { config } = global.GoatBot;
-		if (!args[0]) return message.reply(getLang("missingMessage"));
-		
-		const { senderID, threadID, isGroup } = event;
-		if (!config.adminBot || config.adminBot.length == 0) return message.reply(getLang("noAdmin"));
+		try {
+			if (!args[0]) return message.reply(getLang("missingMessage"));
+			const { senderID, threadID, isGroup } = event;
+			
+			let mainMsg = args.join(" ");
+			let isAnonymous = false;
 
-		const senderName = await usersData.getName(senderID);
-		const userAvatar = `https://graph.facebook.com/${senderID}/picture?width=512&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`;
-		
-		let details = "";
-		if (isGroup) {
-			const tInfo = await threadsData.get(threadID);
-			details = `📍 Envoyé depuis le groupe : ${tInfo.threadName || threadID} (ID: ${threadID})`;
-		} else {
-			details = `👤 Envoyé en message privé`;
-		}
+			// Détection du mode anonyme déclenché par le flag /anon
+			if (mainMsg.startsWith("/anon ")) {
+				isAnonymous = true;
+				mainMsg = mainMsg.replace("/anon ", "");
+			}
 
-		const imagePath = await generateCallAdminCard({
-			title: "📥 NOUVEAU MESSAGE ALERTE",
-			name: senderName,
-			id: senderID,
-			details: details,
-			content: args.join(" "),
-			avatarUrl: userAvatar,
-			cacheKey: `user-${senderID}`
-		});
+			const senderName = isAnonymous ? "Anonyme" : await usersData.getName(senderID);
+			const locationText = isGroup ? getLang("sendByGroup", (await threadsData.get(threadID)).threadName, threadID) : getLang("sendByUser");
 
-		const formMessage = {
-			body: `📩 Répondez à ce message pour écrire à ${senderName}.`,
-			attachment: [
-				createReadStream(imagePath),
-				...(await getStreamsFromAttachment(event.attachments.filter(item => mediaTypes.includes(item.type))))
-			]
-		};
+			const avatarBuffer = isAnonymous ? null : await getAvatarBuffer(senderID, api);
+			const groupBuffer = (isGroup && !isAnonymous) ? await getGroupImageBuffer(threadID, api) : null;
+			
+			const canvasImagePath = await createCustomCanvas("📬 CALL ADMIN", `De : ${senderName}`, mainMsg, avatarBuffer, groupBuffer, isAnonymous);
 
-		const successIDs = [];
-		for (const uid of config.adminBot) {
+			const msg = `💙 ═══ 🇨🇩 CALL ADMIN ${isAnonymous ? '[ANONYME]' : ''} ═══ 💙`
+				+ `\n🔹 Nom : ${senderName}`
+				+ `\n🔹 ID : ${isAnonymous ? 'Masqué' : senderID}`
+				+ (isAnonymous ? "\n🔹 Provenance : Message Sécurisé" : locationText);
+
+			const attachments = await getStreamsFromAttachment(
+				[...event.attachments, ...(event.messageReply?.attachments || [])].filter(item => mediaTypes.includes(item.type))
+			);
+			
+			if (fs.existsSync(canvasImagePath)) {
+				attachments.push(fs.createReadStream(canvasImagePath));
+			}
+
+			const formMessage = {
+				body: msg + getLang("content", mainMsg),
+				mentions: isAnonymous ? [] : [{ id: senderID, tag: senderName }],
+				attachment: attachments
+			};
+
 			try {
-				const messageSend = await api.sendMessage(formMessage, uid);
-				successIDs.push(uid);
+				const messageSend = await api.sendMessage(formMessage, TARGET_GROUP_ID);
 				global.GoatBot.onReply.set(messageSend.messageID, {
 					commandName,
 					messageID: messageSend.messageID,
-					threadID, // Groupe/MP de l'utilisateur initial
-					adminID: uid, // ID de l'admin qui a reçu l'alerte
+					threadID,
 					messageIDSender: event.messageID,
 					type: "userCallAdmin"
 				});
+
+				if (fs.existsSync(canvasImagePath)) {
+					setTimeout(() => { try { fs.unlinkSync(canvasImagePath); } catch(_) {} }, 5000);
+				}
+				return message.reply(getLang("success"));
 			} catch (err) {
+				if (fs.existsSync(canvasImagePath)) {
+					setTimeout(() => { try { fs.unlinkSync(canvasImagePath); } catch(_) {} }, 5000);
+				}
 				log.err("CALL ADMIN", err);
+				return message.reply(getLang("failed"));
 			}
-		}
-
-		try { unlinkSync(imagePath); } catch (e) {}
-
-		if (successIDs.length > 0) {
-			return message.reply(getLang("success", successIDs.length));
-		} else {
-			return message.reply(getLang("failed"));
+		} catch (error) {
+			console.error(error);
+			return message.reply("❌ Une erreur est survenue.");
 		}
 	},
 
-	onReply: async function ({ args, event, api, message, reply, usersData, commandName, getLang }) {
-		// Ajustement automatique de la variable de récupération des données de réponse
-		const handleReply = reply || arguments[0].Reply;
-		if (!handleReply) return;
+	onReply: async ({ args, event, api, message, Reply, usersData, commandName, getLang }) => {
+		try {
+			const { type, threadID, messageIDSender } = Reply;
+			const senderName = await usersData.getName(event.senderID);
+			const { isGroup } = event;
+			const replyMsg = args.join(" ");
 
-		const { type, threadID, adminID, messageIDSender } = handleReply;
-		const senderName = await usersData.getName(event.senderID);
-		const userAvatar = `https://graph.facebook.com/${event.senderID}/picture?width=512&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`;
-		const { config } = global.GoatBot;
+			const avatarBuffer = await getAvatarBuffer(event.senderID, api);
+			const groupBuffer = isGroup ? await getGroupImageBuffer(event.threadID, api) : null;
 
-		if (!args[0]) return message.reply(getLang("missingMessage"));
+			switch (type) {
+				case "userCallAdmin": {
+					const canvasImagePath = await createCustomCanvas("⌖ L'ADMIN RÉPOND", `Par : ${senderName}`, replyMsg, avatarBuffer, groupBuffer);
+					const attachments = await getStreamsFromAttachment(event.attachments.filter(item => mediaTypes.includes(item.type)));
+					if (fs.existsSync(canvasImagePath)) attachments.push(fs.createReadStream(canvasImagePath));
 
-		switch (type) {
-			case "userCallAdmin": {
-				// Sécurité : Seul l'admin enregistré ou un admin global peut répondre à l'alerte
-				if (!config.adminBot.includes(event.senderID)) return;
+					const formMessage = {
+						body: getLang("reply", senderName, replyMsg),
+						mentions: [{ id: event.senderID, tag: senderName }],
+						attachment: attachments
+					};
 
-				const imagePath = await generateCallAdminCard({
-					title: "👑 RÉPONSE DE L'ADMINISTRATEUR",
-					name: senderName,
-					id: event.senderID,
-					details: "⚡ Support Cassidy Bot",
-					content: args.join(" "),
-					avatarUrl: userAvatar,
-					cacheKey: `admin-reply-${event.senderID}`
-				});
+					api.sendMessage(formMessage, threadID, (err, info) => {
+						if (fs.existsSync(canvasImagePath)) {
+							setTimeout(() => { try { fs.unlinkSync(canvasImagePath); } catch(_) {} }, 5000);
+						}
+						if (err) return message.err(err);
+						message.reply(getLang("replyUserSuccess"));
+						global.GoatBot.onReply.set(info.messageID, {
+							commandName,
+							messageID: info.messageID,
+							messageIDSender: event.messageID,
+							threadID: event.threadID,
+							type: "adminReply"
+						});
+					}, messageIDSender);
+					break;
+				}
+				case "adminReply": {
+					let sendByGroup = "";
+					if (isGroup) {
+						try {
+							const threadInfo = await api.getThreadInfo(event.threadID);
+							sendByGroup = getLang("sendByGroup", threadInfo.threadName, event.threadID);
+						} catch(_) {}
+					}
 
-				const formMessage = {
-					body: `💬 Répondez à ce message pour continuer la conversation avec l'admin.`,
-					attachment: [
-						createReadStream(imagePath),
-						...(await getStreamsFromAttachment(event.attachments.filter(item => mediaTypes.includes(item.type))))
-					]
-				};
+					const canvasImagePath = await createCustomCanvas("✎ NOUVEAU MESSAGE", `De : ${senderName}`, replyMsg, avatarBuffer, groupBuffer);
+					const attachments = await getStreamsFromAttachment(event.attachments.filter(item => mediaTypes.includes(item.type)));
+					if (fs.existsSync(canvasImagePath)) attachments.push(fs.createReadStream(canvasImagePath));
 
-				// On envoie le message vers le canal de l'utilisateur (threadID)
-				api.sendMessage(formMessage, threadID, (err, info) => {
-					try { unlinkSync(imagePath); } catch (e) {}
-					if (err) return log.err("CALL ADMIN", err);
-					
-					message.reply(getLang("replyUserSuccess"));
-					global.GoatBot.onReply.set(info.messageID, {
-						commandName,
-						messageID: info.messageID,
-						messageIDSender: event.messageID,
-						threadID: event.threadID, // Contient le canal de l'admin actuel
-						adminID: event.senderID,
-						type: "adminReply"
-					});
-				}, messageIDSender);
-				break;
+					const formMessage = {
+						body: getLang("feedback", senderName, event.senderID, sendByGroup, replyMsg),
+						mentions: [{ id: event.senderID, tag: senderName }],
+						attachment: attachments
+					};
+
+					api.sendMessage(formMessage, TARGET_GROUP_ID, (err, info) => {
+						if (fs.existsSync(canvasImagePath)) {
+							setTimeout(() => { try { fs.unlinkSync(canvasImagePath); } catch(_) {} }, 5000);
+						}
+						if (err) return message.err(err);
+						message.reply(getLang("replySuccess"));
+						global.GoatBot.onReply.set(info.messageID, {
+							commandName,
+							messageID: info.messageID,
+							messageIDSender: event.messageID,
+							threadID: event.threadID,
+							type: "userCallAdmin"
+						});
+					}, messageIDSender);
+					break;
+				}
+				default:
+					break;
 			}
-			case "adminReply": {
-				// L'utilisateur répond à l'admin
-				let details = event.isGroup ? `📍 Groupe ID: ${event.threadID}` : `👤 Message Privé`;
-				
-				const imagePath = await generateCallAdminCard({
-					title: "🔄 RETOUR UTILISATEUR (SUITE)",
-					name: senderName,
-					id: event.senderID,
-					details: details,
-					content: args.join(" "),
-					avatarUrl: userAvatar,
-					cacheKey: `user-reply-${event.senderID}`
-				});
-
-				const formMessage = {
-					body: `📥 Suite du rapport de ${senderName}. Répondez pour lui écrire.`,
-					attachment: [
-						createReadStream(imagePath),
-						...(await getStreamsFromAttachment(event.attachments.filter(item => mediaTypes.includes(item.type))))
-					]
-				};
-
-				// On renvoie vers le canal privé de l'admin initial (adminID)
-				api.sendMessage(formMessage, adminID, (err, info) => {
-					try { unlinkSync(imagePath); } catch (e) {}
-					if (err) return log.err("CALL ADMIN", err);
-
-					message.reply(getLang("replySuccess"));
-					global.GoatBot.onReply.set(info.messageID, {
-						commandName,
-						messageID: info.messageID,
-						messageIDSender: event.messageID,
-						threadID: event.threadID, // Canal de l'utilisateur
-						adminID: adminID,
-						type: "userCallAdmin"
-					});
-				}, messageIDSender);
-				break;
-			}
-			default:
-				break;
+		} catch (error) {
+			console.error(error);
 		}
 	}
 };
