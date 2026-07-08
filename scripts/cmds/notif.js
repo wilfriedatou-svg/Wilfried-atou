@@ -1,216 +1,252 @@
 const { createCanvas, loadImage } = require('canvas');
 const fs = require('fs-extra');
 const path = require('path');
-const axios = require('axios');
 const GIFEncoder = require('gifencoder');
 
 module.exports = {
     config: {
-        name: "notif", // Le nom de base (le script gère l'alias ou tu peux dupliquer le fichier)
-        version: "2.5.0",
-        author: "Célestin",
-        countDown: 10,
-        role: 2, // Réservé aux admins
-        description: "Notification animée dont la taille s'adapte au message (all = tous les groupes, ones = ce groupe)",
+        name: "notif",
+        version: "6.5.0",
+        author: "Célestin 🇦🇴🛀",
+        countDown: 5,
+        role: 2, // Admin uniquement
+        description: "Notification Or (1000x580) - Envoi Global Absolu Multi-sources",
         category: "admin",
-        guide: "Tapez '!notifall [texte]' pour diffuser partout ou '!notifones [texte]' pour ce groupe uniquement."
+        guide: {
+            en: "{p}notifall [texte] ou {p}notifones [texte]"
+        }
     },
 
-    onStart: async function ({ api, event, args }) {
-        const { threadID, messageID, senderID, body } = event;
-        const messageText = args.join(" ") || "Système Admin : Initialisation.";
+    onStart: async function ({ api, event, args, message, threadsData }) {
+        const { threadID, senderID, body } = event;
+        const messageText = args.join(" ") || "Notification Système.";
         
-        // Détection du mode choisi par l'utilisateur via le mot tapé
-        const isGlobal = body.toLowerCase().startsWith("!notifall");
-
+        const isGlobal = body.toLowerCase().startsWith("!notifall") || body.toLowerCase().includes("notifall");
+        
         const cacheDir = path.join(__dirname, 'cache');
         if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
-        const gifPath = path.join(cacheDir, `notif_cyber_${senderID}.gif`);
+        const gifPath = path.join(cacheDir, `notif_royal_${Date.now()}.gif`);
 
-        await api.sendMessage(`🎬 Génération de l'animation personnalisée (${isGlobal ? "Diffusion Globale" : "Mode Solo"})...`, threadID, messageID);
+        await message.reply(`👑 [GoatBot] Génération du visuel (1000x580) avec effacement lent...`);
 
         try {
-            // 1. Récupération des infos admin
-            const info = await api.getUserInfo(senderID);
-            const userName = info[senderID]?.name || "Administrateur";
-            
-            // Récupération de la photo de profil avec sécurité
-            let avatarImg = null;
-            const avatarUrls = [
-                `https://graph.facebook.com/${senderID}/picture?type=large`,
-                `https://graph.facebook.com/${senderID}/picture?width=300&height=300`,
-                `https://i.imgur.com/8QnUq8K.png` 
-            ];
+            // ─── 1. RÉCUPÉRATION DU NOM DE L'ADMIN ───
+            let userName = "Administrateur";
+            try {
+                const userInfo = await api.getUserInfo(senderID);
+                userName = userInfo[senderID]?.name || "Administrateur";
+            } catch(e) {}
 
-            for (const url of avatarUrls) {
+            // ─── 2. CHARGEMENT DE L'AVATAR (STYLE PREFIX) ───
+            let avatarImg = null;
+            const avatarUrl = `https://graph.facebook.com/${senderID}/picture?type=large`;
+            
+            try {
+                avatarImg = await loadImage(avatarUrl);
+            } catch (e) {
                 try {
-                    const response = await axios.get(url, { 
-                        responseType: 'arraybuffer',
-                        headers: { 'User-Agent': 'Mozilla/5.0' },
-                        timeout: 3000 
-                    });
-                    avatarImg = await loadImage(Buffer.from(response.data));
-                    break;
-                } catch (e) {
-                    console.log("Erreur avatar, tentative URL suivante...");
+                    avatarImg = await loadImage(`https://api.mestaria.com/fb/avatar?id=${senderID}`);
+                } catch (err) {
+                    console.log("Impossible de charger l'avatar, utilisation du fallback graphique.");
                 }
             }
 
-            // 2. Préparation des frames (écriture/effacement)
+            // ─── 3. ANIMATION : ÉCRITURE RAPIDE PUIS EFFACEMENT CARACTÈRE PAR CARACTÈRE ───
             let framesText = [];
-            for(let i = 1; i <= messageText.length; i++) {
+            
+            // Écriture
+            for (let i = 1; i <= messageText.length; i += 2) {
                 framesText.push(messageText.substring(0, i) + "┃");
             }
-            for(let i = 0; i < 12; i++) { // Petite pause sur le texte complet
-                framesText.push(messageText + (i % 2 === 0 ? "┃" : " ")); 
+            
+            // Pause (8 frames)
+            for (let i = 0; i < 8; i++) {
+                framesText.push(messageText + " ");
             }
-            for(let i = messageText.length; i >= 0; i -= 2) {
+            
+            // Effacement LENT
+            for (let i = messageText.length; i >= 0; i--) {
                 framesText.push(messageText.substring(0, i) + "┃");
             }
 
-            // 3. CALCUL DYNAMIQUE DE LA TAILLE DU CANVAS
-            // Base fixe pour l'avatar et les marges (~140px) + la longueur estimée du texte
-            // On impose un minimum de 320px et un maximum de 600px pour que ça reste lisible sur mobile
-            const textEstimation = messageText.length * 7.5;
-            const dynamicWidth = Math.min(Math.max(320, Math.floor(140 + textEstimation)), 600);
-            const height = 110;
-
-            const canvas = createCanvas(dynamicWidth, height);
+            // ─── 4. MOTEUR CANVAS (1000x580) ───
+            const width = 1000;
+            const height = 580;
+            const canvas = createCanvas(width, height);
             const ctx = canvas.getContext('2d');
             
-            const encoder = new GIFEncoder(dynamicWidth, height);
-            encoder.createReadStream().pipe(fs.createWriteStream(gifPath));
+            const encoder = new GIFEncoder(width, height);
+            const writeStream = fs.createWriteStream(gifPath);
+            encoder.createReadStream().pipe(writeStream);
+            
             encoder.start();
             encoder.setRepeat(0);   
-            encoder.setDelay(60);   
-            encoder.setQuality(8);  
+            encoder.setDelay(140); 
+            encoder.setQuality(10); 
 
-            // 4. Dessin des images du GIF
+            const avatarX = 200;
+            const avatarY = 290;
+            const radius = 110;
+
             for (let f = 0; f < framesText.length; f++) {
-                ctx.clearRect(0, 0, dynamicWidth, height);
+                ctx.clearRect(0, 0, width, height);
 
-                // Fond Cyber Noir & Bleu Nuit adapté à la largeur dynamique
-                const bgGradient = ctx.createLinearGradient(0, 0, dynamicWidth, height);
-                bgGradient.addColorStop(0, '#060913');
-                bgGradient.addColorStop(0.5, '#0b1120');
-                bgGradient.addColorStop(1, '#05070c');
-                ctx.fillStyle = bgGradient;
+                // Fond Sombre
+                let gradient = ctx.createLinearGradient(0, 0, width, height);
+                gradient.addColorStop(0, '#0f0c20');
+                gradient.addColorStop(0.5, '#0a0d16');
+                gradient.addColorStop(1, '#04050a');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, width, height);
+
+                // Dégradé Or Royal
+                const themeColor = ctx.createLinearGradient(30, 30, width - 30, height - 30);
+                themeColor.addColorStop(0, '#bf953f');
+                themeColor.addColorStop(0.25, '#fcf6ba');
+                themeColor.addColorStop(0.5, '#b38728');
+                themeColor.addColorStop(0.75, '#fbf5b7');
+                themeColor.addColorStop(1, '#aa771c');
+
+                // Cadre
+                ctx.strokeStyle = themeColor;
+                ctx.lineWidth = 5;
                 ctx.beginPath();
-                ctx.roundRect(10, 10, dynamicWidth - 20, 90, 18);
-                ctx.fill();
-
-                // Bordure Néon Animée adaptée
-                const borderGradient = ctx.createLinearGradient(10 + (f * 3) % dynamicWidth, 10, dynamicWidth - (f * 2) % dynamicWidth, height);
-                borderGradient.addColorStop(0, '#0052d4'); 
-                borderGradient.addColorStop(0.5, '#651fff'); 
-                borderGradient.addColorStop(1, '#00c6ff'); 
-                ctx.strokeStyle = borderGradient;
-                ctx.lineWidth = 2;
+                ctx.roundRect(30, 30, width - 60, height - 60, 25);
                 ctx.stroke();
 
-                // Photo de Profil en Cercle
-                const avatarSize = 54;
-                const avatarX = 25;
-                const avatarY = 28;
-
-                ctx.save();
+                // Anneaux
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+                ctx.lineWidth = 4;
                 ctx.beginPath();
-                ctx.arc(avatarX + avatarSize / 2, avatarY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2);
-                ctx.closePath();
-                ctx.clip();
+                ctx.arc(avatarX, avatarY, radius + 12, 0, Math.PI * 2);
+                ctx.stroke();
+
+                ctx.strokeStyle = themeColor;
+                ctx.lineWidth = 6;
+                ctx.beginPath();
+                ctx.arc(avatarX, avatarY, radius + 12, 0.3, Math.PI * 1.5);
+                ctx.stroke();
+
+                // Avatar
                 if (avatarImg) {
-                    ctx.drawImage(avatarImg, avatarX, avatarY, avatarSize, avatarSize);
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.arc(avatarX, avatarY, radius, 0, Math.PI * 2, true);
+                    ctx.closePath();
+                    ctx.clip();
+                    ctx.drawImage(avatarImg, avatarX - radius, avatarY - radius, radius * 2, radius * 2);
+                    ctx.restore();
+                } else {
+                    ctx.fillStyle = '#b38728';
+                    ctx.beginPath(); 
+                    ctx.arc(avatarX, avatarY, radius, 0, Math.PI * 2); 
+                    ctx.fill();
                 }
-                ctx.restore();
 
-                // Contour brillant de l'avatar
-                ctx.beginPath();
-                ctx.arc(avatarX + avatarSize / 2, avatarY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2);
-                ctx.strokeStyle = "rgba(0, 198, 255, 0.6)";
-                ctx.lineWidth = 1.5;
-                ctx.stroke();
+                // Titres
+                ctx.textAlign = 'left';
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 36px "Sans-Serif"';
+                ctx.fillText(userName.toUpperCase(), 420, 115);
 
-                // Statut en ligne clignotant
-                ctx.beginPath();
-                ctx.arc(avatarX + avatarSize - 3, avatarY + avatarSize - 3, 6, 0, Math.PI * 2);
-                ctx.fillStyle = (f % 10 < 7) ? "#00e676" : "#007b3e";
-                ctx.fill();
-                ctx.strokeStyle = "#060913";
-                ctx.lineWidth = 2;
-                ctx.stroke();
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+                ctx.font = '18px "Sans-Serif"';
+                ctx.fillText(isGlobal ? "DIFFUSION BASE DE DONNÉES EN COURS..." : "ALERTE LOCALISÉE", 420, 155);
 
-                // Nom de l'Admin
-                ctx.fillStyle = "#ffffff";
-                ctx.font = "bold 14px sans-serif";
-                ctx.fillText(userName, avatarX + avatarSize + 15, 44);
+                const decoration = "✧ ══━━✥👑✥━━══ ࿇";
+                ctx.fillStyle = themeColor;
+                ctx.font = 'bold 22px Arial';
+                ctx.fillText(decoration, 420, 215);
 
-                // Badge "SYSTEM" automatique après le nom
-                ctx.fillStyle = "rgba(0, 82, 212, 0.4)";
-                ctx.beginPath();
-                ctx.roundRect(avatarX + avatarSize + 15 + ctx.measureText(userName).width + 8, 31, 48, 16, 4);
-                ctx.fill();
-                ctx.fillStyle = "#00c6ff";
-                ctx.font = "bold 9px sans-serif";
-                ctx.fillText("SYSTEM", avatarX + avatarSize + 15 + ctx.measureText(userName).width + 14, 42);
+                // Texte Animé
+                ctx.fillStyle = themeColor;
+                ctx.font = 'bold 32px "Sans-Serif"';
+                
+                const maxWidth = 500;
+                const words = framesText[f].split(' ');
+                let line = '';
+                let posY = 290;
 
-                // Date à droite (s'adapte à la fin du rectangle dynamique)
-                ctx.fillStyle = "#58a6ff";
-                ctx.font = "11px sans-serif";
-                ctx.fillText("Maintenant", dynamicWidth - 85, 44);
+                for (let n = 0; n < words.length; n++) {
+                    let testLine = line + words[n] + ' ';
+                    if (ctx.measureText(testLine).width > maxWidth && n > 0) {
+                        ctx.fillText(line, 420, posY);
+                        line = words[n] + ' ';
+                        posY += 45;
+                    } else {
+                        line = testLine;
+                    }
+                }
+                ctx.fillText(line, 420, posY);
 
-                // Message évolutif
-                ctx.fillStyle = "#ccd6f6";
-                ctx.font = "13px monospace";
-                let currentFrameText = framesText[f];
-                ctx.fillText(currentFrameText, avatarX + avatarSize + 15, 68);
+                ctx.fillStyle = themeColor;
+                ctx.font = 'bold 22px Arial';
+                ctx.fillText(decoration, 420, 455);
 
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+                ctx.font = '12px "Sans-Serif"';
+                ctx.fillText("» CORE MATRIX SYSTEM BROADCAST «", 420, 510);
+                
                 encoder.addFrame(ctx);
             }
 
             encoder.finish();
+            await new Promise((resolve) => writeStream.on('finish', resolve));
 
-            // 5. LOGIQUE D'ENVOI (ALL VS ONES)
+            // ─── 5. STRATÉGIE D'ENVOI GLOBAL ABSOLU ───
             if (isGlobal) {
-                // Version TOUS LES GROUPES (notifall)
-                const inbox = await api.getThreadList(100, null, ["INBOX"]) || [];
-                const allGroups = inbox.filter(t => t.isGroup && t.isSubscribed);
+                // Fusion des sources pour récupérer absolument TOUS les IDs de groupes possibles
+                let targetIDs = new Set();
+                
+                // Source 1: threadsData
+                try {
+                    const allThreadsData = await threadsData.getAll() || [];
+                    for (const t of allThreadsData) {
+                        const id = t.threadID || t.id;
+                        if (id) targetIDs.add(id.toString());
+                    }
+                } catch(e) {}
 
-                if (allGroups.length === 0) {
-                    await api.sendMessage({ body: "📢 [Mode Solo Automatique - Aucun autre groupe détecté] :", attachment: fs.createReadStream(gifPath) }, threadID);
-                    if (fs.existsSync(gifPath)) fs.unlinkSync(gifPath);
-                    return;
+                // Source 2: api.getThreadList
+                try {
+                    const threadList = await api.getThreadList(200, null, ["INBOX"]) || [];
+                    for (const t of threadList) {
+                        if (t.isGroup && t.threadID) targetIDs.add(t.threadID.toString());
+                    }
+                } catch(e) {}
+
+                if (targetIDs.size === 0) {
+                    return message.reply({ body: `❌ Aucun groupe trouvé dans les registres.`, attachment: fs.createReadStream(gifPath) });
                 }
 
-                let dispatchCount = 0;
-                for (const thread of allGroups) {
+                let count = 0;
+                for (const targetID of targetIDs) {
                     try {
                         await api.sendMessage({
-                            body: "⚡ [ALERTE GLOBALE DE L'ADMINISTRATEUR]",
+                            body: `࿇ ✜»✜«✜»✜«✜»✜«✜»✜ ࿇\n📢 ANNONCE GLOBALE DE L'ADMIN\n✜»✜«✜»✜«✜»✜«✜»✜\n✧❁❁❁✧✿✿✿✧❁❁❁✧`,
                             attachment: fs.createReadStream(gifPath)
-                        }, thread.threadID);
-                        dispatchCount++;
-                        await new Promise(res => setTimeout(res, 600)); 
+                        }, targetID);
+                        count++;
+                        await new Promise(res => setTimeout(res, 1200)); // Anti-Spam
                     } catch (err) {
-                        console.log(`Erreur d'envoi groupe : ${thread.threadID}`);
+                        console.log(`Le bot n'a pas pu écrire dans le salon : ${targetID}`);
                     }
                 }
                 if (fs.existsSync(gifPath)) fs.unlinkSync(gifPath);
-                return api.sendMessage(`🔥 Diffusé avec succès dans ${dispatchCount} groupes !`, threadID, messageID);
-
+                return message.reply(`🔥 Diffusé avec succès dans ${count} groupes actifs !`);
             } else {
-                // Version UN SEUL GROUPE (notifones)
-                await api.sendMessage({
-                    body: "💬 Nouvelle notification reçue :",
+                await message.reply({
+                    body: `👑 Notification Terminée :`,
                     attachment: fs.createReadStream(gifPath)
-                }, threadID, () => {
+                }, () => {
                     if (fs.existsSync(gifPath)) fs.unlinkSync(gifPath);
-                }, messageID);
+                });
             }
 
         } catch (error) {
             console.error(error);
             if (fs.existsSync(gifPath)) fs.unlinkSync(gifPath);
-            return api.sendMessage("❌ Une erreur est survenue lors du traitement.", threadID, messageID);
+            return message.reply(`❌ Erreur Système : ${error.message}`);
         }
     }
 };
