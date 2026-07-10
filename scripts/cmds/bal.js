@@ -3,15 +3,22 @@ const fs = require("fs");
 const path = require("path");
 const axios = require("axios");
 
+// Fonction utilitaire pour générer une couleur néon sombre/lumineuse aléatoire pour le contour
+function getRandomNeonColor() {
+  const hues = [0, 280, 330, 45]; // Rouge, Violet, Rose, Or démoniaque
+  const randomHue = hues[Math.floor(Math.random() * hues.length)];
+  return `hsl(${randomHue}, 100%, 55%)`;
+}
+
 module.exports = {
   config: {
     name: "bal",
     aliases: ["bal", "$", "cash"],
-    version: "5.1",
-    author: "Christus",
+    version: "6.0",
+    author: "Christus x Célestin 🔥",
     countDown: 3,
     role: 0,
-    description: "💰 Système économique stylé avec transfert",
+    description: "💰 Système économique cyber-sanctuaire avec transfert et carte noire",
     category: "economy",
     guide: {
       fr: "{pn} - voir ton solde\n{pn} @utilisateur - voir le solde d'un autre\n{pn} t @utilisateur montant - transférer de l'argent"
@@ -21,7 +28,6 @@ module.exports = {
   onStart: async function ({ message, event, args, usersData }) {
     const { senderID, mentions, messageReply } = event;
 
-    // --- Formatage de l'argent ---
     const formatMoney = (amount) => {
       if (isNaN(amount)) return "0$";
       amount = Number(amount);
@@ -37,7 +43,6 @@ module.exports = {
       return `${amount.toLocaleString()}$`;
     };
 
-    // --- Récupération sécurisée de l'avatar ---
     const fetchAvatar = async (userID) => {
       try {
         let avatarURL = `https://graph.facebook.com/${userID}/picture?type=large&width=500&height=500&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`;
@@ -47,7 +52,7 @@ module.exports = {
         const size = 100;
         const canvas = createCanvas(size, size);
         const ctx = canvas.getContext("2d");
-        ctx.fillStyle = "#3b0066";
+        ctx.fillStyle = "#100015";
         ctx.fillRect(0, 0, size, size);
         ctx.fillStyle = "#fff";
         ctx.font = `bold ${size / 2}px Arial`;
@@ -95,7 +100,7 @@ module.exports = {
       );
     }
 
-    // === CARTE DE SOLDE ===
+    // === GENERATION DE LA CARTE NOIRE "MAISON SHINOBI" ===
     let targetID;
     if (Object.keys(mentions).length > 0) targetID = Object.keys(mentions)[0];
     else if (messageReply) targetID = messageReply.senderID;
@@ -105,30 +110,51 @@ module.exports = {
     const money = await usersData.get(targetID, "money") || 0;
     const avatar = await fetchAvatar(targetID);
 
-    const width = 700, height = 300;
+    const width = 750, height = 350;
     const canvas = createCanvas(width, height);
     const ctx = canvas.getContext("2d");
 
-    // --- Fond dégradé stylé ---
-    const gradient = ctx.createLinearGradient(0, 0, width, height);
-    gradient.addColorStop(0, "#0f2027");
-    gradient.addColorStop(0.5, "#203a43");
-    gradient.addColorStop(1, "#2c5364");
-    ctx.fillStyle = gradient;
+    const neonColor = getRandomNeonColor();
+
+    // 1. Fond Noir Profond Cyber-Maison
+    ctx.fillStyle = "#050508";
     ctx.fillRect(0, 0, width, height);
 
-    // Carte transparente
-    ctx.fillStyle = "rgba(255,255,255,0.08)";
+    // Effet d'ombrage interne (Ambiance sombre)
+    let darkGrad = ctx.createRadialGradient(width/2, height/2, 100, width/2, height/2, 400);
+    darkGrad.addColorStop(0, "rgba(15, 10, 25, 0.2)");
+    darkGrad.addColorStop(1, "#000000");
+    ctx.fillStyle = darkGrad;
+    ctx.fillRect(0, 0, width, height);
+
+    // 2. Structure géométrique "Maison / Sanctuaire" (Lignes de fond discrètes)
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.03)";
+    ctx.lineWidth = 1;
+    for(let i = 0; i < width; i += 50) {
+      ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, height); ctx.stroke();
+    }
+
+    // 3. Cadre Principal Techno-Gothique
+    ctx.fillStyle = "rgba(20, 20, 30, 0.6)";
     ctx.fillRect(40, 40, width - 80, height - 80);
 
-    // Bordure dorée
-    ctx.strokeStyle = "#FFD700";
+    // Bordure Néon Changeante
+    ctx.strokeStyle = neonColor;
     ctx.lineWidth = 4;
     ctx.strokeRect(40, 40, width - 80, height - 80);
 
-    // Avatar rond
-    const avatarSize = 100;
-    const avatarX = 70, avatarY = 130;
+    // Coins renforcés style "Maison forte / Coffre"
+    ctx.fillStyle = neonColor;
+    const cornerSize = 15;
+    ctx.fillRect(35, 35, cornerSize, 5); ctx.fillRect(35, 35, 5, cornerSize); // Haut Gauche
+    ctx.fillRect(width - 35 - cornerSize, 35, cornerSize, 5); ctx.fillRect(width - 35, 35, 5, cornerSize); // Haut Droite
+    ctx.fillRect(35, height - 35, cornerSize, 5); ctx.fillRect(35, height - 35 - cornerSize, 5, cornerSize); // Bas Gauche
+    ctx.fillRect(width - 35 - cornerSize, height - 35, cornerSize, 5); ctx.fillRect(width - 35, height - 35 - cornerSize, 5, cornerSize); // Bas Droite
+
+    // 4. Intégration Avatar avec Auréole Néon
+    const avatarSize = 120;
+    const avatarX = 75, avatarY = 115;
+    
     ctx.save();
     ctx.beginPath();
     ctx.arc(avatarX + avatarSize / 2, avatarY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2);
@@ -136,35 +162,60 @@ module.exports = {
     ctx.drawImage(avatar, avatarX, avatarY, avatarSize, avatarSize);
     ctx.restore();
 
-    // Titre
-    ctx.fillStyle = "#FFD700";
-    ctx.font = "bold 36px Arial";
-    ctx.textAlign = "center";
-    ctx.fillText("⚡ Carte de Solde ⚡", width / 2, 80);
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(avatarX + avatarSize / 2, avatarY + avatarSize / 2, avatarSize / 2 + 2, 0, Math.PI * 2);
+    ctx.stroke();
 
-    // Nom de l'utilisateur
+    // 5. Textes et Données (Style Épuré Haut de Gamme)
+    // Titre de la Banque / Maison
+    ctx.fillStyle = neonColor;
+    ctx.font = "bold 24px 'Impact', sans-serif";
+    ctx.textAlign = "right";
+    ctx.fillText("CASSIDY VAULT SYSTEM", width - 60, 80);
+
+    // Nom du détenteur
     ctx.fillStyle = "#FFFFFF";
-    ctx.font = "bold 32px Arial";
+    ctx.font = "bold 34px 'Arial', sans-serif";
     ctx.textAlign = "left";
-    ctx.fillText(`💎 ${name}`, 200, 160);
+    const cleanName = name.length > 18 ? name.substring(0, 16) + ".." : name;
+    ctx.fillText(cleanName.toUpperCase(), 220, 155);
 
-    // ID utilisateur
-    ctx.font = "22px Arial";
-    ctx.fillStyle = "#AAAAAA";
-    ctx.fillText(`🆔 ${targetID}`, 200, 200);
+    // Statut / ID
+    ctx.font = "14px 'Courier New', monospace";
+    ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+    ctx.fillText(`ACC. HOLDER // ${targetID}`, 220, 185);
 
-    // Solde
-    ctx.font = "bold 44px Arial";
-    ctx.fillStyle = "#00FF7F";
-    ctx.textAlign = "center";
-    ctx.fillText(`${formatMoney(money)}`, width / 2, 250);
+    // Séparateur
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(220, 205); ctx.lineTo(width - 60, 205); ctx.stroke();
 
-    const filePath = path.join(__dirname, "balance_card.png");
+    // Label Solde
+    ctx.font = "bold 13px 'Arial'", sans-serif;
+    ctx.fillStyle = neonColor;
+    ctx.fillText("SOLDE DISPONIBLE", 220, 230);
+
+    // Chiffre du Solde (Gros et Impactant)
+    ctx.font = "bold 52px 'Impact', sans-serif";
+    ctx.fillStyle = "#FFFFFF";
+    ctx.fillText(`${formatMoney(money)}`, 220, 285);
+
+    // 6. Sauvegarde et Envoi
+    const tmpDir = path.join(__dirname, "..", "cache");
+    if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
+    
+    const filePath = path.join(tmpDir, `vault_card_${Date.now()}_${targetID}.png`);
     fs.writeFileSync(filePath, canvas.toBuffer("image/png"));
 
     return message.reply({
-      body: `⚡ Infos de solde pour ${name} ⚡`,
+      body: `🖤 [ ᴍᴀɪsᴏɴ ᴄᴀssɪᴅʏ ] Fiche financière de ${name} mise à jour.`,
       attachment: fs.createReadStream(filePath)
+    }).then(() => {
+      setTimeout(() => {
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      }, 7000);
     });
   }
 };
