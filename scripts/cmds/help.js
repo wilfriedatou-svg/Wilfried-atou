@@ -17,19 +17,18 @@ function toSmallCaps(text) {
   return text.split('').map(c => smallCapsMap[c] || c).join('');
 }
 
-// Convertit les titres de catégories en caractères gras stylés (Math Bold)
-function toMathBold(text) {
-  const boldMap = {
-    'A':'𝐀','B':'𝐁','C':'𝐂','D':'𝐃','E':'𝐄','F':'𝐅','G':'𝐆','H':'𝐇','I':'𝐈','J':'𝐉','K':'𝐊','L':'𝐋','M':'𝐌',
-    'N':'𝐍','O':'𝐎','P':'𝐏','Q':'𝐐','R':'𝐑','S':'𝐒','T':'𝐓','U':'𝐔','V':'𝐕','W':'𝐖','X':'𝐗','Y':'𝐘','Z':'𝐙',
-    'a':'𝐚','b':'𝐛','c':'𝐜','d':'𝐝','e':'𝐞','f':'𝐟','g':'𝐠','h':'𝐡','i':'𝐢','j':'𝐣','k':'𝐤','l':'𝐥','m':'𝐦',
-    'n':'𝐧','o':'𝐨','p':'𝐩','q':'𝐪','r':'𝐫','s':'𝐬','t':'𝐭','u':'𝐮','v':'𝐯','w':'𝐰','x':'𝐱','y':'𝐲','z':'𝐳',
+function toPirateBold(text) {
+  // Style de texte gothique/fraktur pour l'ambiance vieux grimoire pirate
+  const pirateMap = {
+    'A':'𝕬','B':'𝕭','C':'𝕮','D':'𝕯','E':'𝕰','F':'𝕱','G':'𝕲','H':'𝕳','I':'𝕴','J':'𝕵','K':'𝕶','L':'𝕷','M':'𝕸',
+    'N':'𝕹','O':'𝕺','P':'𝕻','Q':'𝕼','R':'𝕽','S':'𝕾','T':'𝕿','U':'𝖀','V':'𝖁','W':'𝖂','X':'𝖃','Y':'𝖄','Z':'𝖅',
+    'a':'𝖆','b':'𝖇','c':'𝖈','d':'𝖉','e':'𝖊','f':'𝖋','g':'𝖌','h':'𝖍','i':'𝖎','j':'𝖏','k':'𝖐','l':'𝖑','m':'𝖒',
+    'n':'𝖓','o':'𝖔','p':'𝖕','q':'𝖖','r':'𝖗','s':'𝖘','t':'𝖙','u':'𝖚','v':'𝖛','w':'𝖜','x':'𝖝','y':'𝖞','z':'𝖟',
     '0':'𝟎','1':'𝟏','2':'𝟐','3':'𝟑','4':'𝟒','5':'𝟓','6':'𝟔','7':'𝟕','8':'𝟖','9':'𝟗'
   };
-  return text.split('').map(c => boldMap[c] || c).join('');
+  return text.split('').map(c => pirateMap[c] || c).join('');
 }
 
-// Convertit les noms de commandes en alphabet monospace/sans-serif pour l'effet "clean"
 function toMonospace(text) {
   const monoMap = {
     'a':'𝖺','b':'𝖻','c':'𝖼','d':'𝖽','e':'𝖾','f':'𝖿','g':'𝗀','h':'𝗁','i':'𝗂','j':'𝗃','k':'𝗄','l':'𝗅','m':'𝗆',
@@ -189,14 +188,14 @@ module.exports = {
       if (checkCmd) {
         const cfg = checkCmd.config;
         const replyMsg = `
-🌐 [ CONFIGURATION SYSTEM // ${cfg.name.toUpperCase()} ]
+🏴‍☠️ [ INFOS SUR LE BUTIN // ${cfg.name.toUpperCase()} ]
 ──────────────────────────────
-👑 Nom : ${toSmallCaps(cfg.name)}
-✍️ Créateur : ${cfg.author || "Inconnu"}
-📝 Description : ${cfg.description?.en || cfg.shortDescription?.en || "Aucune description"}
-📂 Catégorie : ${toSmallCaps(cfg.category || "info")}
-⏱️ Cooldown : ${cfg.countDown || 0}s
-🔐 Rang Requis : ${cfg.role === 2 ? "Owner" : cfg.role === 1 ? "Admin" : "Membres"}
+⚔️ Arme : ${toSmallCaps(cfg.name)}
+✍️ Capitaine : ${cfg.author || "Inconnu"}
+📜 Parchemin : ${cfg.description?.en || cfg.shortDescription?.en || "Aucun détail disponible"}
+🗂️ Quartier : ${toSmallCaps(cfg.category || "info")}
+⏱️ Sablier : ${cfg.countDown || 0}s
+🔐 Droit de Pont : ${cfg.role === 2 ? "Amiral (Owner)" : cfg.role === 1 ? "Lieutenant (Admin)" : "Moussaillons"}
 ──────────────────────────────`;
         
         const res = await message.reply(replyMsg);
@@ -222,40 +221,37 @@ module.exports = {
 
       for (let [name, cmd] of commands) {
         const cat = cmd.config.category || "Other";
-        // Formate le nom de la catégorie (ex: "box chat" -> "Box Chat")
         const formattedCat = cat.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
         if (!categories[formattedCat]) categories[formattedCat] = [];
         categories[formattedCat].push(name);
         totalCmds++;
       }
 
-      // ---- VERSION TEXTUELLE PROPRE ET PRO / PAR CATÉGORIES SANS AUTEURS ----
+      // ---- VERSION PIRATE REFAITE ----
       if (args[0] && args[0].toLowerCase() === "all") {
-        let textList = `🔍 ${toMathBold("Available Commands")} 🧰 (${totalCmds})\n\n`;
+        let textList = `🏴‍☠️ ${toPirateBold("Butin du Navire")} ⚔️ (${totalCmds} Trésors)\n`;
+        textList += `──────────────────────────────\n\n`;
         
         const sortedCategories = Object.keys(categories).sort();
         
         for (const cat of sortedCategories) {
           const cmds = categories[cat].sort();
-          textList += `${toMathBold(cat)} (${cmds.length})\n`;
+          textList += `⚓ [ ${toPirateBold(cat)} ] (${cmds.length})\n`;
           
-          // Aligne les commandes proprement par paquets de 3 par ligne
           let lineBuffer = [];
           for (let i = 0; i < cmds.length; i++) {
-            lineBuffer.push(`📄 ${toMonospace(cmds[i])}`);
+            lineBuffer.push(`☠️ ${toMonospace(cmds[i])}`);
             if (lineBuffer.length === 3 || i === cmds.length - 1) {
-              textList += lineBuffer.join("   ") + "\n";
+              textList += lineBuffer.join("  ") + "\n";
               lineBuffer = [];
             }
           }
           textList += `\n`;
         }
         
-        textList += `\n`;
-        textList += `➜ ${toMathBold("Command details")}: +menu <commande>\n`;
-        textList += `➜ ${toMathBold("Basics")}: +help basics\n`;
-        textList += `➜ ${toMathBold("Search")}: +help search <mot>\n`;
-        textList += `➜ ${toMathBold("Developed by")} Célestin 🎀`;
+        textList += `──────────────────────────────\n`;
+        textList += `🗝️ ${toPirateBold("Inspecter une arme")}: +help <commande>\n`;
+        textList += `📜 ${toPirateBold("Créateur du pavillon")}: Célestin 🎀`;
 
         const res = await message.reply(textList);
         global.GoatBot.onReply.set(res.messageID, {
@@ -271,14 +267,14 @@ module.exports = {
         if (checkCmd) {
           const cfg = checkCmd.config;
           const replyMsg = `
-🌐 [ CONFIGURATION SYSTEM // ${cfg.name.toUpperCase()} ]
+🏴‍☠️ [ INFOS SUR LE BUTIN // ${cfg.name.toUpperCase()} ]
 ──────────────────────────────
-👑 Nom : ${toSmallCaps(cfg.name)}
-✍️ Créateur : ${cfg.author || "Inconnu"}
-📝 Description : ${cfg.description?.en || cfg.shortDescription?.en || "Aucune description"}
-📂 Catégorie : ${toSmallCaps(cfg.category || "info")}
-⏱️ Cooldown : ${cfg.countDown || 0}s
-🔐 Rang Requis : ${cfg.role === 2 ? "Owner" : cfg.role === 1 ? "Admin" : "Membres"}
+⚔️ Arme : ${toSmallCaps(cfg.name)}
+✍️ Capitaine : ${cfg.author || "Inconnu"}
+📜 Parchemin : ${cfg.description?.en || cfg.shortDescription?.en || "Aucun détail disponible"}
+🗂️ Quartier : ${toSmallCaps(cfg.category || "info")}
+⏱️ Sablier : ${cfg.countDown || 0}s
+🔐 Droit de Pont : ${cfg.role === 2 ? "Amiral (Owner)" : cfg.role === 1 ? "Lieutenant (Admin)" : "Moussaillons"}
 ──────────────────────────────`;
           return message.reply(replyMsg);
         }
