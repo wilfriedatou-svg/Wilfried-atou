@@ -192,8 +192,8 @@ module.exports = {
     ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(220, 205); ctx.lineTo(width - 60, 205); ctx.stroke();
 
-    // Label Solde
-    ctx.font = "bold 13px 'Arial'", sans-serif;
+    // Label Solde - Ligne corrigée ici :
+    ctx.font = "bold 13px 'Arial', sans-serif";
     ctx.fillStyle = neonColor;
     ctx.fillText("SOLDE DISPONIBLE", 220, 230);
 
