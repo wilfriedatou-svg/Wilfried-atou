@@ -3,88 +3,109 @@ const fs = require('fs-extra');
 const path = require('path');
 const { config } = global.GoatBot;
 const { writeFileSync } = require("fs-extra");
+const axios = require('axios');
 
 // ==========================================
-// 🎨 ENGIN CANVAS POUR LES ACCÈS ADMIN
+// 🎨 ENGINE CANVAS - GESTION DES ACCÈS PRIVILEGES
 // ==========================================
 async function generateAdminCanvas(userId, title, subtitle, mainText, themeColor) {
 	const canvas = createCanvas(900, 480);
 	const ctx = canvas.getContext('2d');
 
-	// Fond dégradé sombre Style Forteresse / Royal Cyber
-	let gradient = ctx.createLinearGradient(0, 0, 900, 480);
-	gradient.addColorStop(0, '#0c0514');
-	gradient.addColorStop(0.5, '#180a29');
-	gradient.addColorStop(1, '#0c0514');
-	ctx.fillStyle = gradient;
+	// Fond Studio Dark épuré
+	ctx.fillStyle = '#0f172a';
 	ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-	// Cadres doubles gravés de la couleur du thème (Or, Rouge ou Vert)
-	ctx.strokeStyle = themeColor;
-	ctx.lineWidth = 4;
-	ctx.strokeRect(25, 25, 850, 430);
-	ctx.strokeStyle = '#ffffff';
+	// Dégradé radial central discret pour la profondeur
+	let radialGrad = ctx.createRadialGradient(450, 240, 50, 450, 240, 500);
+	radialGrad.addColorStop(0, 'rgba(30, 41, 59, 0.5)');
+	radialGrad.addColorStop(1, '#0f172a');
+	ctx.fillStyle = radialGrad;
+	ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+	// Bordures minimalistes
+	ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
 	ctx.lineWidth = 1;
-	ctx.strokeRect(32, 32, 836, 416);
+	ctx.strokeRect(25, 25, 850, 430);
 
-	// Séparateurs graphiques
+	// Ligne d'accent colorée (Indicateur visuel de statut)
 	ctx.fillStyle = themeColor;
-	ctx.font = 'bold 16px "Sans-Serif"';
-	ctx.fillText("✧ ▬▭▬ ▬▬ ✦ ▬▬ ▬▭▬ ✧", 420, 65);
-	ctx.fillText("✧ ▬▭▬ ▬▬ ✦ ▬▬ ▬▭▬ ✧", 420, 425);
+	ctx.fillRect(25, 25, 5, 430);
 
-	// Récupération de la photo de profil de la cible ou de l'opérateur
-	const avatarUrl = `https://graph.facebook.com/${userId}/picture?width=300&height=300&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`;
+	// Récupération sécurisée et mise en cache de la photo de profil
+	const avX = 80, avY = 130, avSize = 220;
+	const avatarUrl = `https://graph.facebook.com/${userId}/picture?type=large&redirect=true&width=300&height=300`;
+	
 	try {
-		const userAvatar = await loadImage(avatarUrl);
+		const response = await axios.get(avatarUrl, {
+			responseType: 'arraybuffer',
+			headers: {
+				'accept': 'image/avif,image/webp,image/apng,*/*;q=0.8',
+				'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+			},
+			timeout: 5000
+		});
+
+		const userAvatar = await loadImage(Buffer.from(response.data));
 		ctx.save();
 		ctx.beginPath();
-		ctx.arc(190, 240, 110, 0, Math.PI * 2, true);
-		ctx.closePath();
+		ctx.arc(avX + avSize / 2, avY + avSize / 2, avSize / 2, 0, Math.PI * 2, true);
 		ctx.clip();
-		ctx.drawImage(userAvatar, 80, 130, 220, 220);
+		ctx.drawImage(userAvatar, avX, avY, avSize, avSize);
 		ctx.restore();
 
-		// Anneau de sécurité néon
-		ctx.strokeStyle = themeColor;
-		ctx.lineWidth = 6;
+		// Contour discret de l'avatar
+		ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+		ctx.lineWidth = 3;
 		ctx.beginPath();
-		ctx.arc(190, 240, 112, 0, Math.PI * 2);
+		ctx.arc(avX + avSize / 2, avY + avSize / 2, avSize / 2 + 1, 0, Math.PI * 2);
 		ctx.stroke();
 	} catch (e) {
-		ctx.fillStyle = themeColor;
-		ctx.beginPath(); ctx.arc(190, 240, 110, 0, Math.PI * 2); ctx.fill();
+		// Fallback si l'image ne peut pas être récupérée
+		ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
+		ctx.beginPath(); 
+		ctx.arc(avX + avSize / 2, avY + avSize / 2, avSize / 2, 0, Math.PI * 2); 
+		ctx.fill();
+		
+		ctx.fillStyle = '#ffffff';
+		ctx.font = 'bold 72px system-ui, sans-serif';
+		ctx.textAlign = 'center';
+		ctx.textBaseline = 'middle';
+		ctx.fillText("👤", avX + avSize / 2, avY + avSize / 2);
+		ctx.textAlign = 'left';
+		ctx.textBaseline = 'alphabetic';
 	}
 
-	// Écriture des en-têtes système
-	ctx.fillStyle = themeColor;
-	ctx.font = 'bold 36px "Sans-Serif"';
-	ctx.fillText(title, 420, 120);
-
+	// Textes de l'interface
 	ctx.fillStyle = '#ffffff';
-	ctx.font = 'bold 22px "Sans-Serif"';
-	ctx.fillText(subtitle, 420, 175);
+	ctx.font = '600 30px system-ui, sans-serif';
+	ctx.fillText(title, 360, 115);
 
-	// Zone d'affichage de la liste ou des UID (Retour à la ligne automatique)
-	ctx.fillStyle = '#e0e0e0';
-	ctx.font = '18px "Sans-Serif"';
+	ctx.fillStyle = themeColor;
+	ctx.font = '500 14px system-ui, sans-serif';
+	ctx.fillText(subtitle.toUpperCase(), 360, 150);
+
+	// Zone d'affichage des listes / logs d'identifiants
+	ctx.fillStyle = '#94a3b8';
+	ctx.font = '15px system-ui, sans-serif';
 	
 	const lines = mainText.split('\n');
-	let y = 220;
-	const lineHeight = 28;
+	let y = 200;
+	const lineHeight = 32;
 
 	for (let i = 0; i < lines.length; i++) {
-		if (y > 390) {
-			ctx.fillText("• ... et d'autres enregistrements", 420, y);
+		if (y > 410) {
+			ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+			ctx.fillText("• D'autres enregistrements masqués...", 360, y);
 			break;
 		}
-		ctx.fillText(lines[i], 420, y);
+		ctx.fillText(lines[i], 360, y);
 		y += lineHeight;
 	}
 
 	const tmpDir = path.join(__dirname, "..", "cache");
 	await fs.ensureDir(tmpDir);
-	const imagePath = path.join(tmpDir, `admin_${Date.now()}_${userId}.png`);
+	const imagePath = path.join(tmpDir, `admin_panel_${Date.now()}_${userId}.png`);
 	fs.writeFileSync(imagePath, canvas.toBuffer('image/png'));
 	return imagePath;
 }
@@ -92,25 +113,25 @@ async function generateAdminCanvas(userId, title, subtitle, mainText, themeColor
 module.exports = {
 	config: {
 		name: "admin",
-		version: "3.0",
-		author: "NTKhang + Celestin 👑 (Canvas Edition)",
+		version: "4.0",
+		author: "NTKhang + Celestin 👑 (Version Épurée 2026)",
 		countDown: 5,
 		role: 2,
 		description: {
-			en: "Manage admin system with visual cards"
+			en: "Manage system administration privileges with clean visual dashboard cards."
 		},
 		category: "system"
 	},
 
 	langs: {
 		en: {
-			added: "👑 Accès accordé à %1 élu(s) :\n%2",
-			alreadyAdmin: "\n⚠️ Déjà dans l'élite :\n%2",
-			missingIdAdd: "⚠️ Donne un UID ou tag",
-			removed: "❌ Pouvoir retiré à %1 membre(s) :\n%2",
-			notAdmin: "⚠️ Non membre du système :\n%2",
-			missingIdRemove: "⚠️ Donne un UID ou tag",
-			listAdmin: "👑 Les Boss du Système :\n%1"
+			added: "👑 Privilèges système accordés à %1 utilisateur(s) :\n%2",
+			alreadyAdmin: "\nℹ️ Déjà enregistré(s) dans le registre d'administration :\n%2",
+			missingIdAdd: "⚠️ Veuillez spécifier un UID ou mentionner un utilisateur.",
+			removed: "🔒 Accès révoqué pour %1 utilisateur(s) :\n%2",
+			notAdmin: "⚠️ Cet utilisateur ne dispose d'aucun privilège élevé :\n%2",
+			missingIdRemove: "⚠️ Veuillez spécifier un UID ou mentionner un utilisateur pour la destitution.",
+			listAdmin: "👔 Registre des Administrateurs Système :\n%1"
 		}
 	},
 
@@ -149,11 +170,11 @@ module.exports = {
 					uids.map(uid => usersData.getName(uid).then(name => ({ uid, name })))
 				);
 
-				const canvasText = getNames.map(i => `• ${i.name}\n  [UID: ${i.uid}]`).join("\n");
-				const imagePath = await generateAdminCanvas(uids[0], "👑 ACCÈS SYSTÈME ACCORDÉ", `Élu(s) détecté(s) : ${notAdminIds.length}`, canvasText, "#ffb703");
+				const canvasText = getNames.map(i => `▪  ${i.name} (${i.uid})`).join("\n");
+				const imagePath = await generateAdminCanvas(uids[0], "ATTRIBUTION DE PRIVILÈGES", `Statut : +${notAdminIds.length} Administrateur(s) ajouté(s)`, canvasText, "#60a5fa");
 
-				let replyText = (notAdminIds.length > 0 ? getLang("added", notAdminIds.length, getNames.map(i => `• ${i.name} (${i.uid})`).join("\n")) : "") +
-					(adminIds.length > 0 ? getLang("alreadyAdmin", adminIds.length, adminIds.map(uid => `• ${uid}`).join("\n")) : "");
+				let replyText = (notAdminIds.length > 0 ? getLang("added", notAdminIds.length, getNames.map(i => `  • ${i.name} [${i.uid}]`).join("\n")) : "") +
+					(adminIds.length > 0 ? getLang("alreadyAdmin", adminIds.length, adminIds.map(uid => `  • ${uid}`).join("\n")) : "");
 
 				return message.reply({ body: replyText, attachment: fs.createReadStream(imagePath) }, () => {
 					if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
@@ -192,11 +213,11 @@ module.exports = {
 					adminIds.map(uid => usersData.getName(uid).then(name => ({ uid, name })))
 				);
 
-				const canvasText = getNames.map(i => `• ${i.name}\n  [UID: ${i.uid}]`).join("\n");
-				const imagePath = await generateAdminCanvas(uids[0], "❌ POUVOIR DESTITUTION", `Statut : ${adminIds.length} révoqué(s)`, canvasText, "#f72585");
+				const canvasText = getNames.map(i => `▪  ${i.name} (${i.uid})`).join("\n");
+				const imagePath = await generateAdminCanvas(uids[0], "RÉVOCATION DE PRIVILÈGES", `Statut : -${adminIds.length} Administrateur(s) retiré(s)`, canvasText, "#ef4444");
 
-				let replyText = (adminIds.length > 0 ? getLang("removed", adminIds.length, getNames.map(i => `• ${i.name} (${i.uid})`).join("\n")) : "") +
-					(notAdminIds.length > 0 ? getLang("notAdmin", notAdminIds.length, notAdminIds.map(uid => `• ${uid}`).join("\n")) : "");
+				let replyText = (adminIds.length > 0 ? getLang("removed", adminIds.length, getNames.map(i => `  • ${i.name} [${i.uid}]`).join("\n")) : "") +
+					(notAdminIds.length > 0 ? getLang("notAdmin", notAdminIds.length, notAdminIds.map(uid => `  • ${uid}`).join("\n")) : "");
 
 				return message.reply({ body: replyText, attachment: fs.createReadStream(imagePath) }, () => {
 					if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
@@ -210,17 +231,17 @@ module.exports = {
 					config.adminBot.map(uid => usersData.getName(uid).then(name => ({ uid, name })))
 				);
 
-				const canvasText = getNames.map((i, index) => `${index + 1}. ${i.name} (${i.uid})`).join("\n");
-				const imagePath = await generateAdminCanvas(senderID, "🛡️ LISTE DES SOUVERAINS", `Total : ${config.adminBot.length} Administrateurs`, canvasText, "#00f5d4");
+				const canvasText = getNames.map((i, index) => `${index + 1}. ${i.name}\n    [ID: ${i.uid}]`).join("\n");
+				const imagePath = await generateAdminCanvas(senderID, "REGISTRE DE SÉCURITÉ", `Total : ${config.adminBot.length} Utilisateurs authentifiés`, canvasText, "#10b981");
 
-				return message.reply({ body: getLang("listAdmin", getNames.map(i => `• ${i.name} (${i.uid})`).join("\n")), attachment: fs.createReadStream(imagePath) }, () => {
+				return message.reply({ body: getLang("listAdmin", getNames.map(i => `  ▪ ${i.name} [${i.uid}]`).join("\n")), attachment: fs.createReadStream(imagePath) }, () => {
 					if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
 				});
 			}
 
 			// ================= DEFAULT =================
 			default:
-				return message.reply("⚠️ Commande invalide. Options valides : add (-a), remove (-r), list (-l)");
+				return message.reply("⚙️ Action requise non reconnue. Syntaxe : admin [add (-a) / remove (-r) / list (-l)]");
 		}
 	}
 };
