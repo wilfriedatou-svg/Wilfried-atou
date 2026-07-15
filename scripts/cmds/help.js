@@ -181,11 +181,11 @@ module.exports = {
 🌐 [ ᴄᴏɴꜰɪɢᴜʀᴀᴛɪᴏɴ ѕʏѕᴛᴇᴍ // ${cfg.name.toUpperCase()} ]
 ──────────────────────────────
 🔹 𝖭𝗈𝗆 : ${toSmallCaps(cfg.name)}
-🔹 𝖢𝗋ᴇ́𝖺ᴛ𝖾𝗎𝗋 : ${cfg.author || "Inconnu"}
+🔹 𝖢𝗋ᴇ́𝖺ᴛ𝖾𝗎𝑟 : ${cfg.author || "Inconnu"}
 🔹 𝖣𝖾𝗌𝖼𝗋𝗂𝗉ᴛɪᴏ̂ɴ : ${cfg.description?.en || cfg.shortDescription?.en || "Aucune description"}
 🔹 𝖢𝖺𝗍ᴇ́ɢᴏʀɪᴇ : ${toSmallCaps(cfg.category || "info")}
-🔹 𝖢ᴏᴏʟᴅᴏᴡɴ : ${cfg.countDown || 0}s
-🔹 𝖭𝗂𝗏ᴇᴀᴜ 𝖱ᴏ𝒍ᴇ : ${cfg.role === 2 ? "Owner" : cfg.role === 1 ? "Admin" : "Membres"}
+🔹 𝖢ᴏᴏʟ... 𝖣𝗈𝗐𝗇 : ${cfg.countDown || 0}s
+🔹 𝖭𝗂𝗏ᴇᴀᴜ 𝖱ᴏ𝒍𝒆 : ${cfg.role === 2 ? "Owner" : cfg.role === 1 ? "Admin" : "Membres"}
 ──────────────────────────────`;
         
         const res = await message.reply(replyMsg);
@@ -217,29 +217,25 @@ module.exports = {
 
       // === SECTOR RESTRUCTURÉ : MENU "HELP ALL" REVISITÉ ===
       if (args[0] && args[0].toLowerCase() === "all") {
-        let textList = `╭━━━✥ 👑 ✥━━━╮\n  ${toCursive("Menu Principal Premium")}\n╰━━━✥ 👑 ✥━━━╯\n\n`;
-        textList += `📊 ${toCursive("Index Global")} : ${toCursive(totalCmds.toString())} ${toCursive("modules actifs.")}\n`;
-        textList += `───────────────────────`;
+        let textList = `╔═══━━━─── • ───━━━═══╗\n        👑 𝐌𝐄𝐍𝐔 𝐏𝐑𝐄𝐌𝐈𝐔𝐌 👑\n╚═══━━━─── • ───━━━═══╝\n\n📊 Modules actifs : ${totalCmds}\n━━━━━━━━━━━━━━━━━━━━━━━`;
         
         for (const cat of Object.keys(categories).sort()) {
-          const catAuthors = [...new Set(categories[cat].map(c => commands.get(c).config.author || "Inconnu"))].join(", ");
+          textList += `\n\n⚜️ 𝐀${toCursive(cat.substring(1).toUpperCase())}\n`;
           
-          textList += `\n\n⚜️  【 ${toCursive(cat.toUpperCase())} 】`;
-          textList += `\n👤 _${toCursive("Auteur")} : ${toCursive(catAuthors)}_ \n`;
-          
-          // Alignement propre et classé en lignes de 3 commandes maximum pour plus de clarté
           const sortedCmds = categories[cat].sort();
-          let lineBuffer = [];
+          const styledCmds = sortedCmds.map(cmd => `• ${toCursive(cmd)}`);
           
-          for (let i = 0; i < sortedCmds.length; i++) {
-            lineBuffer.push(`• ${sortedCmds[i]}`);
-            if (lineBuffer.length === 3 || i === sortedCmds.length - 1) {
-              textList += `\n ${lineBuffer.join("   ")}`;
+          // Organisation des commandes sur des lignes de 3 éléments pour correspondre à ton design
+          let lineBuffer = [];
+          for (let i = 0; i < styledCmds.length; i++) {
+            lineBuffer.push(styledCmds[i]);
+            if (lineBuffer.length === 3 || i === styledCmds.length - 1) {
+              textList += `\n${lineBuffer.join("   ")}`;
               lineBuffer = [];
             }
           }
         }
-        textList += `\n\n───────────────────────\n💡 *${toCursive("Astuce")} :* ${toCursive("Repondez directement avec le nom d'un module pour en extraire la configuration.")}`;
+        textList += `\n\n━━━━━━━━━━━━━━━━━━━━━━━\n💡 Tape une commande pour voir les détails`;
 
         const res = await message.reply(textList);
         global.GoatBot.onReply.set(res.messageID, {
@@ -258,11 +254,11 @@ module.exports = {
 🌐 [ ᴄᴏɴꜰɪɢᴜʀᴀᴛɪᴏɴ ѕʏѕᴛᴇᴍ // ${cfg.name.toUpperCase()} ]
 ──────────────────────────────
 🔹 𝖭𝗈𝗆 : ${toSmallCaps(cfg.name)}
-🔹 𝖢𝗋ᴇ́𝖺ᴛ𝖾𝗎𝗋 : ${cfg.author || "Inconnu"}
+🔹 𝖢𝗋ᴇ́𝖺ᴛ𝖾𝗎𝑟 : ${cfg.author || "Inconnu"}
 🔹 𝖣𝖾𝗌𝖼𝗋𝗂𝗉ᴛɪᴏ̂ɴ : ${cfg.description?.en || cfg.shortDescription?.en || "Aucune description"}
 🔹 𝖢𝖺𝗍ᴇ́ɢᴏʀɪᴇ : ${toSmallCaps(cfg.category || "info")}
-🔹 𝖢ᴏᴏʟᴅᴏᴡɴ : ${cfg.countDown || 0}s
-🔹 𝖭𝗂𝗏ᴇᴀᴜ 𝖱ᴏ𝒍ᴇ : ${cfg.role === 2 ? "Owner" : cfg.role === 1 ? "Admin" : "Membres"}
+🔹 𝖢ᴏᴏʟ... 𝖣𝗈𝗐𝗇 : ${cfg.countDown || 0}s
+🔹 𝖭𝗂𝗏ᴇᴀᴜ 𝖱ᴏ𝒍𝒆 : ${cfg.role === 2 ? "Owner" : cfg.role === 1 ? "Admin" : "Membres"}
 ──────────────────────────────`;
           return message.reply(replyMsg);
         }
@@ -290,3 +286,4 @@ module.exports = {
     }
   }
 };
+    
