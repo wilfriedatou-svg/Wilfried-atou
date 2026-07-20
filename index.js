@@ -1,44 +1,34 @@
-const { spawn } = require("child_process");
-const express = require("express");
-
+const express = require('express');
+const axios = require('axios');
 const app = express();
+app.use(express.json());
 
-// 🔥 serveur obligatoire pour Render
-app.get("/", (req, res) => {
-  res.send("Goat Bot Running ✅");
-});
+const TOKEN = process.env.TELEGRAM_TOKEN;
+const URL = `https://api.telegram.org/bot${TOKEN}`;
+const WEBHOOK_URL = "https://wilfried-atou.onrender.com";
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log("🌍 Server running on port " + PORT);
-});
-
-// 💥 sécurité anti crash
-process.on("uncaughtException", err => console.error("💥", err));
-process.on("unhandledRejection", err => console.error("💥", err));
-
-// 🚀 lancement bot
-function startBot() {
-  const child = spawn("node", ["Goat.js"], {
-    stdio: "inherit",
-    shell: true
-  });
-
-  child.on("close", (code) => {
-    console.log("🔁 Bot arrêté avec code:", code);
-
-    // restart seulement si erreur
-    if (code !== 0) {
-      setTimeout(() => {
-        console.log("♻️ Redémarrage...");
-        startBot();
-      }, 5000);
+app.post('/', async (req, res) => {
+  const { message } = req.body;
+  if (message && message.text) {
+    if (message.text === '/start') {
+      await axios.post(`${URL}/sendMessage`, {
+        chat_id: message.chat.id,
+        text: "HELLO, WORLD! ✅ Ton bot marche"
+      });
+    } else {
+      await axios.post(`${URL}/sendMessage`, {
+        chat_id: message.chat.id,
+        text: `Tu as dit: ${message.text}`
+      });
     }
-  });
+  }
+  res.sendStatus(200);
+});
 
-  child.on("error", (err) => {
-    console.error("❌ Spawn error:", err);
-  });
-}
+app.get('/', (req, res) => res.send('Bot is running'));
 
-startBot();
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, async () => {
+  await axios.post(`${URL}/setWebhook?url=${WEBHOOK_URL}`);
+  console.log(`Bot running on port ${PORT}`);
+});
