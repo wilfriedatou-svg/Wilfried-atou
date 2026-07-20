@@ -1,34 +1,29 @@
+const TelegramBot = require('node-telegram-bot-api');
 const express = require('express');
-const axios = require('axios');
 const app = express();
+
 app.use(express.json());
 
-const TOKEN = process.env.TELEGRAM_TOKEN;
-const URL = `https://api.telegram.org/bot${TOKEN}`;
-const WEBHOOK_URL = "https://wilfried-atou.onrender.com";
+const token = process.env.TELEGRAM_TOKEN;
+const bot = new TelegramBot(token, {polling: false});
+const url = 'https://wilfried-atou.onrender.com';
 
-app.post('/', async (req, res) => {
-  const { message } = req.body;
-  if (message && message.text) {
-    if (message.text === '/start') {
-      await axios.post(`${URL}/sendMessage`, {
-        chat_id: message.chat.id,
-        text: "HELLO, WORLD! ✅ Ton bot marche"
-      });
-    } else {
-      await axios.post(`${URL}/sendMessage`, {
-        chat_id: message.chat.id,
-        text: `Tu as dit: ${message.text}`
-      });
-    }
-  }
+const PORT = process.env.PORT || 3000;
+
+app.post(`/bot${token}`, (req, res) => {
+  bot.processUpdate(req.body);
   res.sendStatus(200);
 });
 
 app.get('/', (req, res) => res.send('Bot is running'));
 
-const PORT = process.env.PORT || 10000;
+bot.on('message', (msg) => {
+  const chatId = msg.chat.id;
+  bot.sendMessage(chatId, 'HELLO, WORLD! ✅ Ton bot marche');
+});
+
 app.listen(PORT, async () => {
-  await axios.post(`${URL}/setWebhook?url=${WEBHOOK_URL}`);
-  console.log(`Bot running on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
+  await bot.setWebHook(`${url}/bot${token}`);
+  console.log('Webhook set successfully');
 });
