@@ -17,15 +17,15 @@
     "ignoreCommand": []
   },
   "adminBot": [
-    "61561648169981"
+    "61573267116639"
   ],
   "whiteListMode": {
     "enable": false,
     "whiteListIds": [],
     "notes": "if you enable this feature, only the ids in the whiteListIds section can use the bot"
   },
-  "nickNameBot": "➤『  𝑪𝒂𝒔𝒔𝒊𝒅𝒚-𝒃𝒐𝒕』☜ヅ",
-  "prefix": "-",
+  "nickNameBot": "wilfried,
+  "prefix": ".",
   "database": {
     "type": "sqlite",
     "uriMongodb": "",
@@ -36,7 +36,7 @@
   "timeZone": "Asia/Dhaka",
     "credentials": {
     "gmailAccount": {
-      "email": "romeobot555@gmail.com",
+      "email": "wilfriedatou@gmail.com",
       "clientId": "938512788954-ndaggmsbqkf0a6ougkc7p0iek446ikt1.apps.googleusercontent.com",
       "clientSecret": "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",
       "refreshToken": "1//046ZXiqfQpbF1CgYIARAAGAQSNwF-L9Ir8uPenmtD9Co8psKc7goPgaxSfYG_TJreIbnB1mKgwC0vKP9t4Ir-kxjf-YMNGd124TQ",
